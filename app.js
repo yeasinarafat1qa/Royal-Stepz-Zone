@@ -1,3 +1,4 @@
+```javascript
 import {
   auth,
   db,
@@ -18,20 +19,29 @@ import {
 } from "./firebase.js";
 
 
-// ===============================
-// ROYALE STEPZ ZONE
-// Customer App JavaScript
-// ===============================
-
+// =====================================================
+// ROYALE STEPZ ZONE - APP.JS
+// =====================================================
 
 let products = [];
 let cart = JSON.parse(localStorage.getItem("royaleCart") || "[]");
 let currentUser = null;
 
 
-// ===============================
-// HELPER
-// ===============================
+// =====================================================
+// GLOBAL SYNC
+// =====================================================
+
+function syncGlobals() {
+  window.products = products;
+  window.cart = cart;
+  window.currentUser = currentUser;
+}
+
+
+// =====================================================
+// HELPER FUNCTIONS
+// =====================================================
 
 function esc(value) {
   return String(value ?? "")
@@ -42,607 +52,822 @@ function esc(value) {
     .replace(/'/g, "&#039;");
 }
 
+
 function money(value) {
-  return `QAR ${Number(value || 0).toFixed(2)}`;
+  const number = Number(value || 0);
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "QAR",
+    minimumFractionDigits: 2
+  }).format(number);
 }
+
 
 function saveCart() {
   localStorage.setItem("royaleCart", JSON.stringify(cart));
+  syncGlobals();
   updateCartCount();
 }
 
-function updateCartCount() {
-  const count = cart.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
 
-  document.querySelectorAll(".cart-count").forEach(el => {
+function updateCartCount() {
+  const count = cart.reduce(
+    (total, item) => total + Number(item.quantity || 1),
+    0
+  );
+
+  document.querySelectorAll("[data-cart-count]").forEach(el => {
     el.textContent = count;
   });
 }
 
 
-// ===============================
-// LOAD PRODUCTS
-// ===============================
+// =====================================================
+// PRODUCT LOADING
+// =====================================================
 
 async function loadProducts() {
   try {
     const snapshot = await get(ref(db, "products"));
 
-    products = [];
+    if (!snapshot.exists()) {
+      products = [];
+      syncGlobals();
 
-    if (snapshot.exists()) {
-      const data = snapshot.val();
+      renderProducts([]);
+      renderFeaturedProducts([]);
+      populateCategories([]);
 
-      Object.entries(data).forEach(([id, product]) => {
-        products.push({
-          id,
-          ...product
-        });
-      });
+      return;
     }
 
-    products.sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+    const data = snapshot.val();
+
+    products = Object.entries(data).map(([id, product]) => ({
+      id,
+      ...product
+    }));
+
+    products.sort(
+      (a, b) =>
+        Number(b.createdAt || 0) - Number(a.createdAt || 0)
+    );
+
+    syncGlobals();
 
     renderProducts(products);
-    renderFeaturedProducts();
-    populateCategories();
+    renderFeaturedProducts(products);
+    populateCategories(products);
 
   } catch (error) {
     console.error("Product loading error:", error);
 
-    const container = document.getElementById("productGrid");
-
-    if (container) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <h3>Products could not be loaded</h3>
-          <p>Please check your Firebase settings.</p>
-        </div>
-      `;
-    }
+    showToast(
+      "Product load করতে সমস্যা হয়েছে।",
+      "error"
+    );
   }
 }
 
 
-// ===============================
+// =====================================================
 // PRODUCT CARD
-// ===============================
+// =====================================================
 
-function productCard(product) {
-
-  const image =
-    product.image ||
-    (product.images && product.images[0]?.url) ||
-    "https://via.placeholder.com/600x600?text=Royale+Stepz";
-
-  const oldPrice = Number(product.oldPrice || 0);
-  const price = Number(product.price || 0);
-
-  let discount = "";
-
-  if (oldPrice > price && oldPrice > 0) {
-    const percent = Math.round(((oldPrice - price) / oldPrice) * 100);
-
-    discount = `<span class="discount-badge">${percent}% OFF</span>`;
+function getProductImage(product) {
+  if (product.image) {
+    return product.image;
   }
 
+  if (
+    Array.isArray(product.images) &&
+    product.images.length > 0
+  ) {
+    if (typeof product.images[0] === "string") {
+      return product.images[0];
+    }
+
+    return product.images[0]?.url || "";
+  }
+
+  return "";
+}
+
+
+function productCard(product) {
+  const image = getProductImage(product);
+
+  const price = Number(product.price || 0);
+  const oldPrice = Number(
+    product.oldPrice || product.comparePrice || 0
+  );
+
+  const category =
+    product.category ||
+    product.categoryName ||
+    "Footwear";
+
+  const name =
+    product.name ||
+    product.title ||
+    "Product";
+
+
   return `
-    <div class="product-card">
+    <article class="product-card">
 
-      <div class="product-image-wrap" onclick="openProduct('${product.id}')">
+      <div
+        class="product-image"
+        onclick="openProduct('${esc(product.id)}')"
+      >
 
-        ${discount}
+        ${
+          image
+            ? `
+              <img
+                src="${esc(image)}"
+                alt="${esc(name)}"
+                loading="lazy"
+                onerror="this.src='https://via.placeholder.com/600x600?text=No+Image'"
+              >
+            `
+            : `
+              <div class="no-image">
+                No Image
+              </div>
+            `
+        }
 
-        <img
-          src="${esc(image)}"
-          alt="${esc(product.name)}"
-          class="product-image"
-          loading="lazy"
-        >
+        ${
+          product.badge
+            ? `<span class="product-badge">${esc(product.badge)}</span>`
+            : ""
+        }
 
       </div>
+
 
       <div class="product-info">
 
         <div class="product-category">
-          ${esc(product.category || "Footwear")}
+          ${esc(category)}
         </div>
 
-        <h3 class="product-name">
-          ${esc(product.name)}
+        <h3 class="product-title">
+          ${esc(name)}
         </h3>
 
-        <div class="price-row">
+        <div class="product-price">
 
-          <strong class="product-price">
+          <strong>
             ${money(price)}
           </strong>
 
           ${
             oldPrice > price
-              ? `<del>${money(oldPrice)}</del>`
+              ? `
+                <del>
+                  ${money(oldPrice)}
+                </del>
+              `
               : ""
           }
 
         </div>
 
+
         <button
-          class="btn btn-primary add-cart-btn"
-          onclick="openProduct('${product.id}')"
+          class="btn btn-primary product-btn"
+          onclick="openProduct('${esc(product.id)}')"
         >
           View Product
         </button>
 
       </div>
 
-    </div>
+    </article>
   `;
 }
 
 
-// ===============================
+// =====================================================
 // RENDER PRODUCTS
-// ===============================
+// =====================================================
 
-function renderProducts(list = products) {
-
+function renderProducts(list) {
   const grid = document.getElementById("productGrid");
 
   if (!grid) return;
 
-  if (!list.length) {
+  if (!list || list.length === 0) {
     grid.innerHTML = `
       <div class="empty-state">
         <h3>No products found</h3>
-        <p>Try another category or search.</p>
+        <p>এই মুহূর্তে কোনো product পাওয়া যায়নি।</p>
       </div>
     `;
 
     return;
   }
 
-  grid.innerHTML = list.map(productCard).join("");
+  grid.innerHTML = list
+    .map(productCard)
+    .join("");
 }
 
 
-// ===============================
+// =====================================================
 // FEATURED PRODUCTS
-// ===============================
+// =====================================================
 
-function renderFeaturedProducts() {
-
+function renderFeaturedProducts(list) {
   const grid = document.getElementById("featuredGrid");
 
   if (!grid) return;
 
-  const featured = products
-    .filter(product => product.featured === true)
+  const featured = list
+    .filter(product =>
+      product.featured === true ||
+      product.featured === "true" ||
+      product.isFeatured === true ||
+      product.isFeatured === "true"
+    )
     .slice(0, 8);
 
-  const list = featured.length
-    ? featured
-    : products.slice(0, 8);
+  const finalList =
+    featured.length > 0
+      ? featured
+      : list.slice(0, 8);
 
-  grid.innerHTML = list.length
-    ? list.map(productCard).join("")
-    : `
+
+  if (finalList.length === 0) {
+    grid.innerHTML = `
       <div class="empty-state">
-        <h3>No featured products yet</h3>
+        <p>No featured products available.</p>
       </div>
     `;
+
+    return;
+  }
+
+  grid.innerHTML = finalList
+    .map(productCard)
+    .join("");
 }
 
 
-// ===============================
-// CATEGORIES
-// ===============================
+// =====================================================
+// CATEGORY
+// =====================================================
 
-function populateCategories() {
-
+function populateCategories(list = products) {
   const select = document.getElementById("categoryFilter");
 
   if (!select) return;
 
   const categories = [
     ...new Set(
-      products
-        .map(product => product.category)
+      list
+        .map(product =>
+          product.category ||
+          product.categoryName
+        )
         .filter(Boolean)
     )
   ];
 
+
   select.innerHTML = `
-    <option value="">All Categories</option>
-    ${categories.map(category =>
-      `<option value="${esc(category)}">${esc(category)}</option>`
-    ).join("")}
+    <option value="all">
+      All Categories
+    </option>
+
+    ${categories
+      .sort()
+      .map(category => `
+        <option value="${esc(category)}">
+          ${esc(category)}
+        </option>
+      `)
+      .join("")}
   `;
 }
 
 
-// ===============================
-// SEARCH
-// ===============================
+function filterCategory(category) {
+  const value =
+    category || "all";
 
-function searchProducts() {
+  const input =
+    document.getElementById("shopSearchInput");
 
-  const searchInput = document.getElementById("searchInput");
+  const search =
+    input?.value?.toLowerCase().trim() || "";
 
-  if (!searchInput) return;
 
-  const keyword = searchInput.value.trim().toLowerCase();
+  let result = [...products];
 
-  const filtered = products.filter(product => {
 
-    const name = String(product.name || "").toLowerCase();
-    const category = String(product.category || "").toLowerCase();
-    const description = String(product.description || "").toLowerCase();
-
-    return (
-      name.includes(keyword) ||
-      category.includes(keyword) ||
-      description.includes(keyword)
+  if (value !== "all") {
+    result = result.filter(product =>
+      String(
+        product.category ||
+        product.categoryName ||
+        ""
+      ).toLowerCase() === value.toLowerCase()
     );
-  });
+  }
 
-  renderProducts(filtered);
+
+  if (search) {
+    result = result.filter(product => {
+
+      const text = `
+        ${product.name || ""}
+        ${product.title || ""}
+        ${product.category || ""}
+        ${product.description || ""}
+        ${product.brand || ""}
+      `.toLowerCase();
+
+      return text.includes(search);
+    });
+  }
+
+
+  renderProducts(result);
 }
 
 
-// ===============================
-// CATEGORY FILTER
-// ===============================
+function setCategory(category) {
+  const select =
+    document.getElementById("categoryFilter");
 
-function filterCategory() {
+  if (select) {
+    select.value = category;
+  }
 
-  const select = document.getElementById("categoryFilter");
+  filterCategory(category);
 
-  if (!select) return;
+  const shop =
+    document.getElementById("shop");
 
-  const category = select.value;
+  if (shop) {
+    shop.scrollIntoView({
+      behavior: "smooth"
+    });
+  }
+}
 
-  if (!category) {
-    renderProducts(products);
+
+window.setCategory = setCategory;
+
+
+// =====================================================
+// SEARCH
+// =====================================================
+
+function searchProducts(value) {
+  const search =
+    String(value || "")
+      .toLowerCase()
+      .trim();
+
+
+  const category =
+    document.getElementById("categoryFilter")
+      ?.value || "all";
+
+
+  let result = [...products];
+
+
+  if (category !== "all") {
+    result = result.filter(product =>
+      String(
+        product.category ||
+        product.categoryName ||
+        ""
+      ).toLowerCase() === category.toLowerCase()
+    );
+  }
+
+
+  if (search) {
+    result = result.filter(product => {
+
+      const text = `
+        ${product.name || ""}
+        ${product.title || ""}
+        ${product.category || ""}
+        ${product.description || ""}
+        ${product.brand || ""}
+      `.toLowerCase();
+
+      return text.includes(search);
+    });
+  }
+
+
+  renderProducts(result);
+}
+
+
+// =====================================================
+// PRODUCT DETAILS
+// =====================================================
+
+function openProduct(id) {
+  const product =
+    products.find(item =>
+      String(item.id) === String(id)
+    );
+
+  if (!product) {
+    showToast(
+      "Product পাওয়া যায়নি।",
+      "error"
+    );
+
     return;
   }
 
-  renderProducts(
-    products.filter(
-      product => product.category === category
-    )
-  );
-}
 
-
-// ===============================
-// PRODUCT DETAILS
-// ===============================
-
-function openProduct(productId) {
-
-  const product = products.find(
-    item => item.id === productId
-  );
-
-  if (!product) return;
-
-  const modal = document.getElementById("productModal");
+  const modal =
+    document.getElementById("productModal");
 
   if (!modal) return;
 
-  const mainImage =
-    product.image ||
-    (product.images && product.images[0]?.url) ||
-    "https://via.placeholder.com/600x600?text=Royale+Stepz";
 
-  const images =
-    product.images?.length
-      ? product.images
-      : [{ url: mainImage }];
+  const image =
+    getProductImage(product);
 
-  const sizes = Array.isArray(product.sizes)
-    ? product.sizes
-    : String(product.sizes || "")
-        .split(",")
-        .map(x => x.trim())
-        .filter(Boolean);
+  const name =
+    product.name ||
+    product.title ||
+    "Product";
 
-  const colors = Array.isArray(product.colors)
-    ? product.colors
-    : String(product.colors || "")
-        .split(",")
-        .map(x => x.trim())
-        .filter(Boolean);
+  const price =
+    Number(product.price || 0);
 
-  modal.innerHTML = `
+  const description =
+    product.description ||
+    "Premium quality footwear.";
 
-    <div class="modal-overlay" onclick="closeProduct(event)">
 
-      <div class="product-modal" onclick="event.stopPropagation()">
+  const modalName =
+    document.getElementById("modalProductName");
 
-        <button
-          class="modal-close"
-          onclick="closeProduct()"
-        >
-          ×
-        </button>
+  const modalPrice =
+    document.getElementById("modalProductPrice");
 
-        <div class="product-detail">
+  const modalDescription =
+    document.getElementById("modalProductDescription");
 
-          <div class="gallery">
+  const modalImage =
+    document.getElementById("modalMainImage");
 
-            <img
-              id="mainProductImage"
-              src="${esc(mainImage)}"
-              alt="${esc(product.name)}"
-              class="detail-main-image"
-            >
+  const modalQuantity =
+    document.getElementById("productQuantity");
 
-            <div class="thumbnail-row">
 
-              ${images.map((img, index) => `
-                <img
-                  src="${esc(img.url)}"
-                  class="thumbnail ${index === 0 ? "active" : ""}"
-                  onclick="changeMainImage('${esc(img.url)}', this)"
-                >
-              `).join("")}
+  if (modalName) {
+    modalName.textContent = name;
+  }
 
-            </div>
+  if (modalPrice) {
+    modalPrice.textContent = money(price);
+  }
 
-          </div>
+  if (modalDescription) {
+    modalDescription.textContent =
+      description;
+  }
 
-          <div class="detail-content">
+  if (modalImage) {
+    modalImage.src =
+      image ||
+      "https://via.placeholder.com/600x600?text=No+Image";
 
-            <div class="product-category">
-              ${esc(product.category || "Footwear")}
-            </div>
+    modalImage.alt = name;
+  }
 
-            <h2>${esc(product.name)}</h2>
+  if (modalQuantity) {
+    modalQuantity.value = 1;
+  }
 
-            <div class="detail-price">
 
-              <strong>${money(product.price)}</strong>
+  modal.dataset.productId =
+    product.id;
 
-              ${
-                Number(product.oldPrice || 0) > Number(product.price || 0)
-                  ? `<del>${money(product.oldPrice)}</del>`
-                  : ""
-              }
 
-            </div>
+  // Size options
+  const sizeContainer =
+    document.getElementById("sizeOptions");
 
-            <p class="detail-description">
-              ${esc(product.description || "Premium quality footwear from Royale Stepz Zone.")}
-            </p>
+  if (sizeContainer) {
 
-            ${
-              sizes.length
-                ? `
-                  <div class="option-group">
+    const sizes =
+      Array.isArray(product.sizes)
+        ? product.sizes
+        : typeof product.sizes === "string"
+          ? product.sizes
+              .split(",")
+              .map(x => x.trim())
+              .filter(Boolean)
+          : [];
 
-                    <label>Size</label>
 
-                    <div class="option-buttons">
-
-                      ${sizes.map((size, index) => `
-                        <button
-                          class="option-btn ${index === 0 ? "selected" : ""}"
-                          data-size="${esc(size)}"
-                          onclick="selectOption(this, 'size')"
-                        >
-                          ${esc(size)}
-                        </button>
-                      `).join("")}
-
-                    </div>
-
-                  </div>
-                `
-                : ""
-            }
-
-            ${
-              colors.length
-                ? `
-                  <div class="option-group">
-
-                    <label>Color</label>
-
-                    <div class="option-buttons">
-
-                      ${colors.map((color, index) => `
-                        <button
-                          class="option-btn ${index === 0 ? "selected" : ""}"
-                          data-color="${esc(color)}"
-                          onclick="selectOption(this, 'color')"
-                        >
-                          ${esc(color)}
-                        </button>
-                      `).join("")}
-
-                    </div>
-
-                  </div>
-                `
-                : ""
-            }
-
-            <div class="quantity-box">
-
-              <button onclick="changeQuantity(-1)">−</button>
-
-              <span id="productQuantity">1</span>
-
-              <button onclick="changeQuantity(1)">+</button>
-
-            </div>
-
+    sizeContainer.innerHTML =
+      sizes.length
+        ? sizes.map((size, index) => `
             <button
-              class="btn btn-primary btn-large"
-              onclick="addToCart('${product.id}')"
+              type="button"
+              class="option-btn ${index === 0 ? "active" : ""}"
+              onclick="selectOption(this, 'size')"
+              data-value="${esc(size)}"
             >
-              Add to Cart
+              ${esc(size)}
             </button>
+          `).join("")
+        : `
+            <span class="option-empty">
+              Size not specified
+            </span>
+          `;
+  }
 
-          </div>
 
-        </div>
+  // Color options
+  const colorContainer =
+    document.getElementById("colorOptions");
 
-      </div>
+  if (colorContainer) {
 
-    </div>
-  `;
+    const colors =
+      Array.isArray(product.colors)
+        ? product.colors
+        : typeof product.colors === "string"
+          ? product.colors
+              .split(",")
+              .map(x => x.trim())
+              .filter(Boolean)
+          : [];
 
-  modal.classList.add("show");
 
-  window.currentProduct = product;
-  window.currentProductQuantity = 1;
+    colorContainer.innerHTML =
+      colors.length
+        ? colors.map((color, index) => `
+            <button
+              type="button"
+              class="option-btn ${index === 0 ? "active" : ""}"
+              onclick="selectOption(this, 'color')"
+              data-value="${esc(color)}"
+            >
+              ${esc(color)}
+            </button>
+          `).join("")
+        : `
+            <span class="option-empty">
+              Color not specified
+            </span>
+          `;
+  }
+
+
+  // Thumbnails
+  const thumbnails =
+    document.getElementById("productThumbnails");
+
+  if (thumbnails) {
+
+    const images =
+      Array.isArray(product.images)
+        ? product.images
+        : image
+          ? [image]
+          : [];
+
+
+    thumbnails.innerHTML =
+      images
+        .map((img, index) => {
+
+          const url =
+            typeof img === "string"
+              ? img
+              : img?.url || "";
+
+          return `
+            <button
+              type="button"
+              class="thumbnail-btn ${index === 0 ? "active" : ""}"
+              onclick="changeMainImage('${esc(url)}', this)"
+            >
+              <img
+                src="${esc(url)}"
+                alt=""
+              >
+            </button>
+          `;
+        })
+        .join("");
+  }
+
+
+  modal.classList.add("active");
+
+  document.body.classList.add("modal-open");
 }
 
 
-function closeProduct(event) {
-
-  if (event && event.target !== event.currentTarget) {
-    return;
-  }
-
-  const modal = document.getElementById("productModal");
+function closeProduct() {
+  const modal =
+    document.getElementById("productModal");
 
   if (modal) {
-    modal.classList.remove("show");
-    modal.innerHTML = "";
+    modal.classList.remove("active");
   }
+
+  document.body.classList.remove("modal-open");
 }
 
 
-function changeMainImage(url, element) {
-
-  const image = document.getElementById("mainProductImage");
+function changeMainImage(url, button) {
+  const image =
+    document.getElementById("modalMainImage");
 
   if (image) {
     image.src = url;
   }
 
-  document.querySelectorAll(".thumbnail").forEach(item => {
-    item.classList.remove("active");
-  });
 
-  if (element) {
-    element.classList.add("active");
+  document
+    .querySelectorAll(".thumbnail-btn")
+    .forEach(btn =>
+      btn.classList.remove("active")
+    );
+
+
+  if (button) {
+    button.classList.add("active");
   }
 }
 
 
 function selectOption(button, type) {
 
-  const parent = button.parentElement;
+  const container =
+    type === "size"
+      ? document.getElementById("sizeOptions")
+      : document.getElementById("colorOptions");
 
-  parent.querySelectorAll(".option-btn").forEach(btn => {
-    btn.classList.remove("selected");
-  });
 
-  button.classList.add("selected");
+  if (!container) return;
+
+
+  container
+    .querySelectorAll(".option-btn")
+    .forEach(btn =>
+      btn.classList.remove("active")
+    );
+
+
+  button.classList.add("active");
 }
 
 
 function changeQuantity(amount) {
 
-  window.currentProductQuantity =
-    Math.max(
-      1,
-      Number(window.currentProductQuantity || 1) + amount
-    );
+  const input =
+    document.getElementById("productQuantity");
 
-  const element = document.getElementById("productQuantity");
+  if (!input) return;
 
-  if (element) {
-    element.textContent = window.currentProductQuantity;
+
+  let value =
+    Number(input.value || 1) +
+    Number(amount || 0);
+
+
+  if (value < 1) {
+    value = 1;
   }
+
+
+  input.value = value;
 }
 
 
-// ===============================
+// =====================================================
 // CART
-// ===============================
+// =====================================================
 
-function addToCart(productId) {
+function addToCart(productId, quantity = null) {
 
-  const product = products.find(
-    item => item.id === productId
-  );
+  const product =
+    products.find(item =>
+      String(item.id) === String(productId)
+    );
 
-  if (!product) return;
 
-  const sizeButton =
-    document.querySelector(".option-btn.selected[data-size]");
+  if (!product) {
+    showToast(
+      "Product পাওয়া যায়নি।",
+      "error"
+    );
 
-  const colorButton =
-    document.querySelector(".option-btn.selected[data-color]");
+    return;
+  }
 
-  const size = sizeButton
-    ? sizeButton.dataset.size
-    : "";
 
-  const color = colorButton
-    ? colorButton.dataset.color
-    : "";
+  let qty =
+    quantity ??
+    Number(
+      document.getElementById(
+        "productQuantity"
+      )?.value || 1
+    );
 
-  const quantity =
-    Number(window.currentProductQuantity || 1);
 
-  const existing = cart.find(item =>
-    item.productId === productId &&
-    item.size === size &&
-    item.color === color
-  );
+  qty =
+    Math.max(1, Number(qty));
+
+
+  const size =
+    document.querySelector(
+      "#sizeOptions .option-btn.active"
+    )?.dataset.value || "";
+
+
+  const color =
+    document.querySelector(
+      "#colorOptions .option-btn.active"
+    )?.dataset.value || "";
+
+
+  const existing =
+    cart.find(item =>
+      String(item.productId) ===
+        String(productId) &&
+      String(item.size || "") ===
+        String(size || "") &&
+      String(item.color || "") ===
+        String(color || "")
+    );
+
 
   if (existing) {
-
-    existing.quantity += quantity;
-
+    existing.quantity =
+      Number(existing.quantity || 0) +
+      qty;
   } else {
 
     cart.push({
-      productId,
-      name: product.name,
-      price: Number(product.price || 0),
+      productId: product.id,
+      name:
+        product.name ||
+        product.title ||
+        "Product",
+      price:
+        Number(product.price || 0),
       image:
-        product.image ||
-        product.images?.[0]?.url ||
-        "",
-      quantity,
+        getProductImage(product),
       size,
-      color
+      color,
+      quantity: qty
     });
   }
 
+
   saveCart();
 
-  closeProduct();
-
-  showToast("Product added to cart");
-
   renderCart();
+
+  showToast(
+    "Product cart-এ যোগ হয়েছে।",
+    "success"
+  );
+
+  closeProduct();
 }
 
 
-// ===============================
-// CART DISPLAY
-// ===============================
-
 function renderCart() {
 
-  const container = document.getElementById("cartItems");
+  const container =
+    document.getElementById("cartItems");
 
   if (!container) return;
 
-  if (!cart.length) {
+
+  if (cart.length === 0) {
 
     container.innerHTML = `
-      <div class="empty-state">
+      <div class="empty-cart">
         <h3>Your cart is empty</h3>
-        <p>Add some products to continue.</p>
+        <p>আপনার cart-এ এখনো কোনো product নেই।</p>
       </div>
     `;
 
@@ -651,169 +876,371 @@ function renderCart() {
     return;
   }
 
-  container.innerHTML = cart.map((item, index) => `
 
-    <div class="cart-item">
+  container.innerHTML =
+    cart.map((item, index) => {
 
-      <img
-        src="${esc(item.image || "https://via.placeholder.com/150")}"
-        alt="${esc(item.name)}"
-      >
+      const image =
+        item.image ||
+        "https://via.placeholder.com/120x120?text=No+Image";
 
-      <div class="cart-item-info">
 
-        <h4>${esc(item.name)}</h4>
+      return `
+        <div class="cart-item">
 
-        ${
-          item.size
-            ? `<p>Size: ${esc(item.size)}</p>`
-            : ""
-        }
+          <img
+            src="${esc(image)}"
+            alt="${esc(item.name)}"
+          >
 
-        ${
-          item.color
-            ? `<p>Color: ${esc(item.color)}</p>`
-            : ""
-        }
+          <div class="cart-item-info">
 
-        <strong>${money(item.price)}</strong>
+            <h4>
+              ${esc(item.name)}
+            </h4>
 
-        <div class="cart-quantity">
+            ${
+              item.size
+                ? `<small>Size: ${esc(item.size)}</small>`
+                : ""
+            }
 
-          <button onclick="updateCartQuantity(${index}, -1)">−</button>
+            ${
+              item.color
+                ? `<small>Color: ${esc(item.color)}</small>`
+                : ""
+            }
 
-          <span>${item.quantity}</span>
+            <strong>
+              ${money(item.price)}
+            </strong>
 
-          <button onclick="updateCartQuantity(${index}, 1)">+</button>
+            <div class="cart-controls">
+
+              <button
+                type="button"
+                onclick="updateCartQuantity(${index}, -1)"
+              >
+                −
+              </button>
+
+              <span>
+                ${Number(item.quantity || 1)}
+              </span>
+
+              <button
+                type="button"
+                onclick="updateCartQuantity(${index}, 1)"
+              >
+                +
+              </button>
+
+              <button
+                type="button"
+                onclick="removeCartItem(${index})"
+              >
+                Remove
+              </button>
+
+            </div>
+
+          </div>
 
         </div>
+      `;
+    }).join("");
 
-      </div>
-
-      <button
-        class="remove-cart"
-        onclick="removeCartItem(${index})"
-      >
-        Remove
-      </button>
-
-    </div>
-
-  `).join("");
 
   updateCartTotals();
 }
 
 
-function updateCartQuantity(index, amount) {
+function updateCartQuantity(index, change) {
 
   if (!cart[index]) return;
 
-  cart[index].quantity += amount;
+
+  cart[index].quantity =
+    Number(cart[index].quantity || 1) +
+    Number(change || 0);
+
 
   if (cart[index].quantity <= 0) {
     cart.splice(index, 1);
   }
 
+
   saveCart();
+
   renderCart();
 }
 
 
 function removeCartItem(index) {
 
+  if (!cart[index]) return;
+
   cart.splice(index, 1);
 
   saveCart();
+
   renderCart();
+
+  showToast(
+    "Product cart থেকে remove হয়েছে।",
+    "success"
+  );
+}
+
+
+function getCartSubtotal() {
+  return cart.reduce(
+    (total, item) =>
+      total +
+      Number(item.price || 0) *
+      Number(item.quantity || 1),
+    0
+  );
+}
+
+
+async function getDeliveryCharge() {
+
+  try {
+
+    const snapshot =
+      await get(
+        ref(db, "settings/deliveryCharge")
+      );
+
+
+    if (snapshot.exists()) {
+      return Number(
+        snapshot.val() || 0
+      );
+    }
+
+  } catch (error) {
+    console.warn(
+      "Delivery charge load error:",
+      error
+    );
+  }
+
+
+  return 0;
 }
 
 
 function updateCartTotals() {
 
-  const subtotal = cart.reduce(
-    (sum, item) =>
-      sum + Number(item.price || 0) * Number(item.quantity || 0),
-    0
-  );
+  const subtotal =
+    getCartSubtotal();
 
-  const element = document.getElementById("cartSubtotal");
 
-  if (element) {
-    element.textContent = money(subtotal);
+  const subtotalElement =
+    document.getElementById(
+      "cartSubtotal"
+    );
+
+
+  const totalElement =
+    document.getElementById(
+      "cartTotal"
+    );
+
+
+  if (subtotalElement) {
+    subtotalElement.textContent =
+      money(subtotal);
+  }
+
+
+  if (totalElement) {
+    totalElement.textContent =
+      money(subtotal);
   }
 }
 
 
-// ===============================
-// AUTH
-// ===============================
+// =====================================================
+// CHECKOUT SUMMARY
+// =====================================================
 
-async function registerUser(name, phone, email, password) {
+async function updateCheckoutSummary() {
+
+  const subtotal =
+    getCartSubtotal();
+
+
+  const delivery =
+    await getDeliveryCharge();
+
+
+  const total =
+    subtotal + delivery;
+
+
+  const subtotalEl =
+    document.getElementById(
+      "checkoutSubtotal"
+    );
+
+  const deliveryEl =
+    document.getElementById(
+      "checkoutDelivery"
+    );
+
+  const totalEl =
+    document.getElementById(
+      "checkoutTotal"
+    );
+
+
+  if (subtotalEl) {
+    subtotalEl.textContent =
+      money(subtotal);
+  }
+
+
+  if (deliveryEl) {
+    deliveryEl.textContent =
+      money(delivery);
+  }
+
+
+  if (totalEl) {
+    totalEl.textContent =
+      money(total);
+  }
+
+
+  window.checkoutDelivery =
+    delivery;
+
+
+  return {
+    subtotal,
+    delivery,
+    total
+  };
+}
+
+
+// =====================================================
+// AUTH - REGISTER
+// =====================================================
+
+async function registerUser(
+  email,
+  password
+) {
 
   try {
 
-    const result =
+    const credential =
       await createUserWithEmailAndPassword(
         auth,
         email,
         password
       );
 
+
+    const user =
+      credential.user;
+
+
     await set(
-      ref(db, `users/${result.user.uid}`),
+      ref(db, `users/${user.uid}`),
       {
-        name,
-        phone,
-        email,
-        role: "user",
-        createdAt: Date.now()
+        uid: user.uid,
+        email: user.email,
+        role:
+          user.uid === ADMIN_UID
+            ? "admin"
+            : "user",
+        createdAt:
+          Date.now()
       }
     );
 
-    showToast("Account created successfully");
 
-    return true;
+    showToast(
+      "Account successfully created.",
+      "success"
+    );
+
+
+    return user;
 
   } catch (error) {
 
-    console.error(error);
-
-    showToast(
-      error.message || "Registration failed"
+    console.error(
+      "Registration error:",
+      error
     );
 
-    return false;
+
+    showToast(
+      getAuthErrorMessage(error),
+      "error"
+    );
+
+
+    throw error;
   }
 }
 
 
-async function loginUser(email, password) {
+// =====================================================
+// AUTH - LOGIN
+// =====================================================
+
+async function loginUser(
+  email,
+  password
+) {
 
   try {
 
-    await signInWithEmailAndPassword(
-      auth,
-      email,
-      password
+    const credential =
+      await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+
+
+    showToast(
+      "Login successful.",
+      "success"
     );
 
-    showToast("Login successful");
 
-    return true;
+    return credential.user;
 
   } catch (error) {
 
-    console.error(error);
-
-    showToast(
-      error.message || "Login failed"
+    console.error(
+      "Login error:",
+      error
     );
 
-    return false;
+
+    showToast(
+      getAuthErrorMessage(error),
+      "error"
+    );
+
+
+    throw error;
   }
 }
 
+
+// =====================================================
+// AUTH - LOGOUT
+// =====================================================
 
 async function logoutUser() {
 
@@ -821,223 +1248,477 @@ async function logoutUser() {
 
     await signOut(auth);
 
-    showToast("Logged out");
+    showToast(
+      "You have been logged out.",
+      "success"
+    );
 
   } catch (error) {
 
-    console.error(error);
+    console.error(
+      "Logout error:",
+      error
+    );
+
+
+    showToast(
+      "Logout করতে সমস্যা হয়েছে।",
+      "error"
+    );
   }
 }
 
 
-// ===============================
-// AUTH STATE
-// ===============================
+// =====================================================
+// AUTH ERROR MESSAGE
+// =====================================================
 
-onAuthStateChanged(auth, async user => {
+function getAuthErrorMessage(error) {
 
-  currentUser = user;
+  const code =
+    error?.code || "";
 
-  updateAuthUI();
 
-  if (user) {
+  switch (code) {
 
-    console.log(
-      "Logged in:",
-      user.email
-    );
+    case "auth/email-already-in-use":
+      return "এই email দিয়ে আগে থেকেই account আছে।";
 
-    if (user.uid === ADMIN_UID) {
-      console.log("Admin account detected");
-    }
+    case "auth/invalid-email":
+      return "সঠিক email address দিন।";
+
+    case "auth/weak-password":
+      return "Password কমপক্ষে 6 characters দিন।";
+
+    case "auth/invalid-credential":
+    case "auth/wrong-password":
+    case "auth/user-not-found":
+      return "Email অথবা password ভুল।";
+
+    case "auth/too-many-requests":
+      return "অনেকবার চেষ্টা হয়েছে। কিছুক্ষণ পরে আবার চেষ্টা করুন।";
+
+    default:
+      return (
+        error?.message ||
+        "Authentication error হয়েছে।"
+      );
   }
-});
+}
 
+
+// =====================================================
+// AUTH UI
+// =====================================================
 
 function updateAuthUI() {
 
-  document.querySelectorAll("[data-auth-user]").forEach(el => {
+  document
+    .querySelectorAll("[data-auth-user]")
+    .forEach(el => {
 
-    el.textContent =
-      currentUser?.email || "Guest";
-  });
+      el.textContent =
+        currentUser?.email ||
+        "Guest";
 
-  document.querySelectorAll(".login-only").forEach(el => {
+    });
 
-    el.style.display =
-      currentUser ? "" : "none";
-  });
 
-  document.querySelectorAll(".logout-only").forEach(el => {
+  document
+    .querySelectorAll(".login-only")
+    .forEach(el => {
 
-    el.style.display =
-      currentUser ? "" : "none";
-  });
-  const adminButton = document.getElementById("adminPanelBtn");
+      el.style.display =
+        currentUser
+          ? ""
+          : "none";
+
+    });
+
+
+  document
+    .querySelectorAll(".logout-only")
+    .forEach(el => {
+
+      el.style.display =
+        currentUser
+          ? ""
+          : "none";
+
+    });
+
+
+  const adminButton =
+    document.getElementById(
+      "adminPanelBtn"
+    );
+
 
   if (adminButton) {
+
     adminButton.style.display =
-      currentUser && currentUser.uid === ADMIN_UID
+      currentUser &&
+      currentUser.uid === ADMIN_UID
         ? "inline-block"
         : "none";
   }
+}
 
 
-// ===============================
-// CHECKOUT
-// ===============================
+// =====================================================
+// AUTH STATE
+// =====================================================
 
-async function createOrder(orderData) {
+onAuthStateChanged(
+  auth,
+  async user => {
+
+    currentUser =
+      user || null;
+
+
+    syncGlobals();
+
+    updateAuthUI();
+
+
+    if (user) {
+
+      console.log(
+        "Logged in:",
+        user.email
+      );
+
+
+      if (user.uid === ADMIN_UID) {
+
+        console.log(
+          "Admin account detected"
+        );
+      }
+    }
+  }
+);
+
+
+// =====================================================
+// CREATE ORDER
+// =====================================================
+
+async function createOrder(orderData = {}) {
 
   if (!currentUser) {
 
-    showToast("Please login first");
+    showToast(
+      "Order করতে আগে login করুন।",
+      "error"
+    );
 
-    return null;
+    throw new Error(
+      "User is not logged in"
+    );
   }
 
-  if (!cart.length) {
 
-    showToast("Your cart is empty");
+  if (cart.length === 0) {
 
-    return null;
+    showToast(
+      "Cart empty.",
+      "error"
+    );
+
+    throw new Error(
+      "Cart is empty"
+    );
   }
+
+
+  const summary =
+    await updateCheckoutSummary();
+
+
+  const order = {
+
+    userId:
+      currentUser.uid,
+
+    userEmail:
+      currentUser.email || "",
+
+    customerName:
+      orderData.customerName || "",
+
+    phone:
+      orderData.phone || "",
+
+    address:
+      orderData.address || "",
+
+    note:
+      orderData.note || "",
+
+    items:
+      cart.map(item => ({
+        productId:
+          item.productId,
+
+        name:
+          item.name,
+
+        price:
+          Number(item.price || 0),
+
+        quantity:
+          Number(item.quantity || 1),
+
+        size:
+          item.size || "",
+
+        color:
+          item.color || "",
+
+        image:
+          item.image || ""
+      })),
+
+    subtotal:
+      summary.subtotal,
+
+    deliveryCharge:
+      summary.delivery,
+
+    total:
+      summary.total,
+
+    status:
+      "Pending",
+
+    createdAt:
+      Date.now()
+  };
+
 
   try {
 
-    const orderRef = push(ref(db, "orders"));
+    const ordersRef =
+      ref(db, "orders");
 
-    const order = {
 
-      ...orderData,
+    const newOrderRef =
+      push(ordersRef);
 
-      userId: currentUser.uid,
 
-      items: cart.map(item => ({
-        productId: item.productId,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        size: item.size || "",
-        color: item.color || ""
-      })),
+    await set(
+      newOrderRef,
+      order
+    );
 
-      subtotal: cart.reduce(
-        (sum, item) =>
-          sum + Number(item.price || 0) * Number(item.quantity || 0),
-        0
-      ),
 
-      status: "Pending",
+    const orderId =
+      newOrderRef.key;
 
-      createdAt: Date.now()
-    };
-
-    await set(orderRef, order);
 
     cart = [];
 
     saveCart();
 
-    showToast("Order placed successfully");
+    renderCart();
 
-    sendWhatsAppOrder(order);
 
-    return orderRef.key;
+    await sendWhatsAppOrder({
+      ...order,
+      orderId
+    });
+
+
+    showToast(
+      "Order successfully placed.",
+      "success"
+    );
+
+
+    return orderId;
 
   } catch (error) {
 
-    console.error("Order error:", error);
-
-    showToast(
-      error.message || "Order could not be placed"
+    console.error(
+      "Order creation error:",
+      error
     );
 
-    return null;
+
+    showToast(
+      "Order create করতে সমস্যা হয়েছে।",
+      "error"
+    );
+
+
+    throw error;
   }
 }
 
 
-// ===============================
+// =====================================================
 // WHATSAPP ORDER
-// ===============================
+// =====================================================
 
-function sendWhatsAppOrder(order) {
+async function sendWhatsAppOrder(order) {
 
-  if (
-    !WHATSAPP_NUMBER ||
-    WHATSAPP_NUMBER.includes("X")
-  ) {
-    console.log(
-      "Please set your WhatsApp number in firebase.js"
+  const lines = [];
+
+
+  lines.push(
+    "🛍️ *NEW ORDER - ROYALE STEPZ ZONE*"
+  );
+
+  lines.push(
+    ""
+  );
+
+  lines.push(
+    `Order ID: ${order.orderId || ""}`
+  );
+
+  lines.push(
+    `Customer: ${order.customerName || ""}`
+  );
+
+  lines.push(
+    `Phone: ${order.phone || ""}`
+  );
+
+  lines.push(
+    `Address: ${order.address || ""}`
+  );
+
+  lines.push(
+    ""
+  );
+
+  lines.push(
+    "*Products:*"
+  );
+
+
+  order.items.forEach(
+    (item, index) => {
+
+      lines.push(
+        `${index + 1}. ${item.name}`
+      );
+
+      lines.push(
+        `   Qty: ${item.quantity}`
+      );
+
+      lines.push(
+        `   Price: ${money(item.price)}`
+      );
+
+
+      if (item.size) {
+
+        lines.push(
+          `   Size: ${item.size}`
+        );
+      }
+
+
+      if (item.color) {
+
+        lines.push(
+          `   Color: ${item.color}`
+        );
+      }
+    }
+  );
+
+
+  lines.push("");
+
+  lines.push(
+    `Subtotal: ${money(order.subtotal)}`
+  );
+
+  lines.push(
+    `Delivery: ${money(order.deliveryCharge)}`
+  );
+
+  lines.push(
+    `*Total: ${money(order.total)}*`
+  );
+
+
+  if (order.note) {
+
+    lines.push("");
+
+    lines.push(
+      `Note: ${order.note}`
+    );
+  }
+
+
+  const message =
+    lines.join("\n");
+
+
+  const number =
+    String(
+      WHATSAPP_NUMBER || ""
+    ).replace(
+      /[^0-9]/g,
+      ""
+    );
+
+
+  if (!number) {
+
+    console.warn(
+      "WHATSAPP_NUMBER is not configured."
     );
 
     return;
   }
 
-  let message =
-    `New Order - Royale Stepz Zone\n\n`;
-
-  message +=
-    `Customer: ${order.customerName || ""}\n`;
-
-  message +=
-    `Phone: ${order.phone || ""}\n`;
-
-  message +=
-    `Address: ${order.address || ""}\n\n`;
-
-  message += "Items:\n";
-
-  order.items.forEach(item => {
-
-    message +=
-      `${item.name} x ${item.quantity}`;
-
-    if (item.size) {
-      message += ` | Size: ${item.size}`;
-    }
-
-    if (item.color) {
-      message += ` | Color: ${item.color}`;
-    }
-
-    message +=
-      ` | ${money(item.price * item.quantity)}\n`;
-  });
-
-  message +=
-    `\nSubtotal: ${money(order.subtotal)}`;
-
-  message +=
-    `\nDelivery: ${money(order.deliveryCharge || 0)}`;
-
-  message +=
-    `\nDiscount: ${money(order.discount || 0)}`;
-
-  message +=
-    `\nTotal: ${money(order.total || order.subtotal)}`;
 
   const url =
-    `https://wa.me/${WHATSAPP_NUMBER}?text=` +
-    encodeURIComponent(message);
+    `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
 
-  window.open(url, "_blank");
+
+  window.open(
+    url,
+    "_blank"
+  );
 }
 
 
-// ===============================
+// =====================================================
 // MY ORDERS
-// ===============================
+// =====================================================
 
 async function loadMyOrders() {
 
-  if (!currentUser) return;
-
   const container =
-    document.getElementById("myOrders");
+    document.getElementById(
+      "ordersList"
+    );
+
 
   if (!container) return;
+
+
+  if (!currentUser) {
+
+    container.innerHTML = `
+      <div class="empty-state">
+        <p>Orders দেখতে আগে login করুন।</p>
+      </div>
+    `;
+
+    return;
+  }
+
 
   try {
 
@@ -1048,179 +1729,340 @@ async function loadMyOrders() {
         equalTo(currentUser.uid)
       );
 
+
     const snapshot =
       await get(ordersQuery);
+
 
     if (!snapshot.exists()) {
 
       container.innerHTML = `
         <div class="empty-state">
           <h3>No orders yet</h3>
+          <p>আপনি এখনো কোনো order করেননি।</p>
         </div>
       `;
 
       return;
     }
 
-    const orders = [];
 
-    snapshot.forEach(child => {
+    const orders =
+      Object.entries(
+        snapshot.val()
+      )
+      .map(([id, order]) => ({
+        id,
+        ...order
+      }))
+      .sort(
+        (a, b) =>
+          Number(b.createdAt || 0) -
+          Number(a.createdAt || 0)
+      );
 
-      orders.push({
-        id: child.key,
-        ...child.val()
-      });
-
-    });
-
-    orders.sort(
-      (a, b) =>
-        Number(b.createdAt || 0) -
-        Number(a.createdAt || 0)
-    );
 
     container.innerHTML =
-      orders.map(order => `
+      orders.map(order => {
 
-        <div class="order-card">
+        const date =
+          order.createdAt
+            ? new Date(
+                order.createdAt
+              ).toLocaleString()
+            : "";
 
-          <div class="order-header">
 
-            <strong>
-              Order #${esc(order.id)}
-            </strong>
+        return `
+          <div class="order-card">
 
-            <span class="status status-${String(order.status || "Pending").toLowerCase()}">
-              ${esc(order.status || "Pending")}
-            </span>
+            <div class="order-header">
+
+              <strong>
+                Order #${esc(order.id)}
+              </strong>
+
+              <span>
+                ${esc(order.status || "Pending")}
+              </span>
+
+            </div>
+
+
+            <div class="order-date">
+              ${esc(date)}
+            </div>
+
+
+            <div class="order-items">
+
+              ${
+                (order.items || [])
+                  .map(item => `
+                    <div class="order-item">
+
+                      <span>
+                        ${esc(item.name)}
+                        × ${Number(item.quantity || 1)}
+                      </span>
+
+                      <strong>
+                        ${money(
+                          Number(item.price || 0) *
+                          Number(item.quantity || 1)
+                        )}
+                      </strong>
+
+                    </div>
+                  `)
+                  .join("")
+              }
+
+            </div>
+
+
+            <div class="order-total">
+
+              <span>
+                Total
+              </span>
+
+              <strong>
+                ${money(order.total)}
+              </strong>
+
+            </div>
 
           </div>
+        `;
 
-          <div class="order-items">
+      }).join("");
 
-            ${
-              (order.items || []).map(item => `
-                <p>
-                  ${esc(item.name)}
-                  × ${item.quantity}
-                </p>
-              `).join("")
-            }
-
-          </div>
-
-          <strong>
-            Total: ${money(order.total || order.subtotal)}
-          </strong>
-
-        </div>
-
-      `).join("");
 
   } catch (error) {
 
-    console.error(error);
+    console.error(
+      "Load orders error:",
+      error
+    );
+
 
     container.innerHTML = `
       <div class="empty-state">
-        Unable to load orders.
+        <p>Orders load করতে সমস্যা হয়েছে।</p>
       </div>
     `;
   }
 }
 
 
-// ===============================
+// =====================================================
 // TOAST
-// ===============================
+// =====================================================
 
-function showToast(message) {
+function showToast(
+  message,
+  type = "success"
+) {
 
   let toast =
-    document.getElementById("toast");
+    document.getElementById(
+      "toast"
+    );
+
 
   if (!toast) {
 
-    toast = document.createElement("div");
+    toast =
+      document.createElement(
+        "div"
+      );
 
-    toast.id = "toast";
+    toast.id =
+      "toast";
 
-    toast.className = "toast";
-
-    document.body.appendChild(toast);
+    document.body.appendChild(
+      toast
+    );
   }
 
-  toast.textContent = message;
 
-  toast.classList.add("show");
+  toast.textContent =
+    message;
 
-  setTimeout(() => {
 
-    toast.classList.remove("show");
+  toast.className =
+    `toast ${type}`;
 
-  }, 3000);
+
+  toast.classList.add(
+    "show"
+  );
+
+
+  clearTimeout(
+    window.__royaleToastTimer
+  );
+
+
+  window.__royaleToastTimer =
+    setTimeout(() => {
+
+      toast.classList.remove(
+        "show"
+      );
+
+    }, 3000);
 }
 
 
-// ===============================
-// GLOBAL FUNCTIONS
-// ===============================
+// =====================================================
+// WINDOW EXPORTS
+// =====================================================
 
-window.openProduct = openProduct;
-window.closeProduct = closeProduct;
-window.changeMainImage = changeMainImage;
-window.selectOption = selectOption;
-window.changeQuantity = changeQuantity;
+window.openProduct =
+  openProduct;
 
-window.addToCart = addToCart;
+window.closeProduct =
+  closeProduct;
 
-window.renderCart = renderCart;
-window.updateCartQuantity = updateCartQuantity;
-window.removeCartItem = removeCartItem;
+window.changeMainImage =
+  changeMainImage;
 
-window.searchProducts = searchProducts;
-window.filterCategory = filterCategory;
+window.selectOption =
+  selectOption;
 
-window.registerUser = registerUser;
-window.loginUser = loginUser;
-window.logoutUser = logoutUser;
+window.changeQuantity =
+  changeQuantity;
 
-window.createOrder = createOrder;
-window.loadMyOrders = loadMyOrders;
+window.addToCart =
+  addToCart;
+
+window.renderCart =
+  renderCart;
+
+window.updateCartQuantity =
+  updateCartQuantity;
+
+window.removeCartItem =
+  removeCartItem;
+
+window.searchProducts =
+  searchProducts;
+
+window.filterCategory =
+  filterCategory;
+
+window.registerUser =
+  registerUser;
+
+window.loginUser =
+  loginUser;
+
+window.logoutUser =
+  logoutUser;
+
+window.createOrder =
+  createOrder;
+
+window.loadMyOrders =
+  loadMyOrders;
+
+window.updateCheckoutSummary =
+  updateCheckoutSummary;
+
+window.showToast =
+  showToast;
+
+window.updateCartCount =
+  updateCartCount;
 
 
-// ===============================
-// INITIALIZE
-// ===============================
+// =====================================================
+// DOM READY
+// =====================================================
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener(
+  "DOMContentLoaded",
+  () => {
 
-  updateCartCount();
+    syncGlobals();
 
-  loadProducts();
+    updateCartCount();
 
-  renderCart();
+    renderCart();
 
-  const searchInput =
-    document.getElementById("searchInput");
+    loadProducts();
 
-  if (searchInput) {
 
-    searchInput.addEventListener(
-      "input",
-      searchProducts
-    );
+    // Search
+    const searchInput =
+      document.getElementById(
+        "shopSearchInput"
+      );
+
+
+    if (searchInput) {
+
+      searchInput.addEventListener(
+        "input",
+        event => {
+
+          searchProducts(
+            event.target.value
+          );
+
+        }
+      );
+    }
+
+
+    // Category
+    const categoryFilter =
+      document.getElementById(
+        "categoryFilter"
+      );
+
+
+    if (categoryFilter) {
+
+      categoryFilter.addEventListener(
+        "change",
+        event => {
+
+          filterCategory(
+            event.target.value
+          );
+
+        }
+      );
+    }
+
+
+    // Close product modal by clicking outside
+    const productModal =
+      document.getElementById(
+        "productModal"
+      );
+
+
+    if (productModal) {
+
+      productModal.addEventListener(
+        "click",
+        event => {
+
+          if (
+            event.target ===
+            productModal
+          ) {
+            closeProduct();
+          }
+
+        }
+      );
+    }
+
   }
-
-  const categoryFilter =
-    document.getElementById("categoryFilter");
-
-  if (categoryFilter) {
-
-    categoryFilter.addEventListener(
-      "change",
-      filterCategory
-    );
-  }
-
-});
+);
+```
