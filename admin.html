@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Royale Stepz Zone - Admin Panel</title>
+
+  <link rel="stylesheet" href="admin.css">
+</head>
+
+<body>
+
+  <!-- Login / Access Check -->
+  <div id="accessLoading" class="access-loading">
+    <div class="loader"></div>
+    <p>Admin Panel যাচাই করা হচ্ছে...</p>
+  </div>
+
+  <!-- Admin App -->
+  <div id="adminApp" class="admin-app hidden">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+
+      <div class="brand">
+        <div class="brand-icon">👟</div>
+
+        <div>
+          <h2>Royale Stepz</h2>
+          <span>Admin Panel</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+
+        <button class="nav-item active" data-section="dashboard">
+          <span>📊</span>
+          <span>Dashboard</span>
+        </button>
+
+        <button class="nav-item" data-section="products">
+          <span>👟</span>
+          <span>Products</span>
+        </button>
+
+        <button class="nav-item" data-section="orders">
+          <span>📦</span>
+          <span>Orders</span>
+        </button>
+
+        <button class="nav-item" data-section="users">
+          <span>👥</span>
+          <span>Users</span>
+        </button>
+
+        <button class="nav-item" data-section="coupons">
+          <span>🎟️</span>
+          <span>Coupons</span>
+        </button>
+
+        <button class="nav-item" data-section="settings">
+          <span>⚙️</span>
+          <span>Settings</span>
+        </button>
+
+      </nav>
+
+      <div class="sidebar-bottom">
+
+        <a href="../index.html" class="view-site">
+          🌐 View Website
+        </a>
+
+        <button id="logoutBtn" class="logout-btn">
+          🚪 Logout
+        </button>
+
+      </div>
+
+    </aside>
+
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- Top Header -->
+      <header class="topbar">
+
+        <div class="mobile-menu-btn" id="mobileMenuBtn">
+          ☰
+        </div>
+
+        <div>
+          <h1 id="pageTitle">Dashboard</h1>
+          <p id="pageSubtitle">Royale Stepz Zone management panel</p>
+        </div>
+
+        <div class="admin-profile">
+
+          <div class="admin-avatar">
+            YA
+          </div>
+
+          <div class="admin-info">
+            <strong id="adminName">Admin</strong>
+            <small id="adminEmail">Loading...</small>
+          </div>
+
+        </div>
+
+      </header>
+
+
+      <!-- ========================= -->
+      <!-- DASHBOARD -->
+      <!-- ========================= -->
+
+      <section id="dashboardSection" class="admin-section active-section">
+
+        <div class="section-heading">
+          <div>
+            <h2>Dashboard</h2>
+            <p>আপনার ব্যবসার সার্বিক তথ্য এখানে দেখুন।</p>
+          </div>
+
+          <button class="primary-btn" onclick="loadDashboard()">
+            🔄 Refresh
+          </button>
+        </div>
+
+
+        <!-- Statistics -->
+
+        <div class="stats-grid">
+
+          <div class="stat-card">
+            <div class="stat-icon">👟</div>
+
+            <div>
+              <span>Total Products</span>
+              <strong id="totalProducts">0</strong>
+            </div>
+          </div>
+
+
+          <div class="stat-card">
+            <div class="stat-icon">📦</div>
+
+            <div>
+              <span>Total Orders</span>
+              <strong id="totalOrders">0</strong>
+            </div>
+          </div>
+
+
+          <div class="stat-card">
+            <div class="stat-icon">👥</div>
+
+            <div>
+              <span>Total Users</span>
+              <strong id="totalUsers">0</strong>
+            </div>
+          </div>
+
+
+          <div class="stat-card">
+            <div class="stat-icon">💰</div>
+
+            <div>
+              <span>Total Sales</span>
+              <strong id="totalSales">QAR 0.00</strong>
+            </div>
+          </div>
+
+        </div>
+
+
+        <!-- Dashboard Grid -->
+
+        <div class="dashboard-grid">
+
+          <!-- Recent Orders -->
+
+          <div class="panel-card">
+
+            <div class="panel-header">
+              <div>
+                <h3>Recent Orders</h3>
+                <p>সাম্প্রতিক অর্ডারগুলো</p>
+              </div>
+
+              <button
+                class="text-btn"
+                onclick="showSection('orders')">
+                View All
+              </button>
+            </div>
+
+            <div class="table-wrapper">
+
+              <table>
+
+                <thead>
+                  <tr>
+                    <th>Order</th>
+                    <th>Customer</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+
+                <tbody id="recentOrdersTable">
+
+                  <tr>
+                    <td colspan="4" class="empty-cell">
+                      Loading orders...
+                    </td>
+                  </tr>
+
+                </tbody>
+
+              </table>
+
+            </div>
+
+          </div>
+
+
+          <!-- Quick Actions -->
+
+          <div class="panel-card">
+
+            <div class="panel-header">
+
+              <div>
+                <h3>Quick Actions</h3>
+                <p>দ্রুত কাজ করুন</p>
+              </div>
+
+            </div>
+
+            <div class="quick-actions">
+
+              <button
+                class="quick-action"
+                onclick="showSection('products'); openProductModal()">
+
+                <span>➕</span>
+                <div>
+                  <strong>Add Product</strong>
+                  <small>নতুন পণ্য যোগ করুন</small>
+                </div>
+
+              </button>
+
+
+              <button
+                class="quick-action"
+                onclick="showSection('orders')">
+
+                <span>📦</span>
+                <div>
+                  <strong>Manage Orders</strong>
+                  <small>অর্ডার পরিচালনা করুন</small>
+                </div>
+
+              </button>
+
+
+              <button
+                class="quick-action"
+                onclick="showSection('coupons')">
+
+                <span>🎟️</span>
+                <div>
+                  <strong>Create Coupon</strong>
+                  <small>ডিসকাউন্ট কুপন তৈরি করুন</small>
+                </div>
+
+              </button>
+
+
+              <button
+                class="quick-action"
+                onclick="showSection('settings')">
+
+                <span>⚙️</span>
+                <div>
+                  <strong>Store Settings</strong>
+                  <small>স্টোর সেটিংস পরিবর্তন করুন</small>
+                </div>
+
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- ========================= -->
+      <!-- PRODUCTS -->
+      <!-- ========================= -->
+
+      <section id="productsSection" class="admin-section">
+
+        <div class="section-heading">
+
+          <div>
+            <h2>Products</h2>
+            <p>আপনার সকল পণ্য পরিচালনা করুন।</p>
+          </div>
+
+          <button
+            class="primary-btn"
+            onclick="openProductModal()">
+
+            ➕ Add Product
+
+          </button>
+
+        </div>
+
+
+        <div class="toolbar">
+
+          <input
+            type="search"
+            id="productSearch"
+            placeholder="🔎 Search products...">
+
+          <select id="productCategoryFilter">
+
+            <option value="all">
+              All Categories
+            </option>
+
+            <option value="Men">
+              Men
+            </option>
+
+            <option value="Women">
+              Women
+            </option>
+
+            <option value="Kids">
+              Kids
+            </option>
+
+            <option value="Sports">
+              Sports
+            </option>
+
+            <option value="Casual">
+              Casual
+            </option>
+
+          </select>
+
+        </div>
+
+
+        <div
+          id="adminProductsGrid"
+          class="admin-products-grid">
+
+          <div class="loading-card">
+            Loading products...
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- ========================= -->
+      <!-- ORDERS -->
+      <!-- ========================= -->
+
+      <section id="ordersSection" class="admin-section">
+
+        <div class="section-heading">
+
+          <div>
+            <h2>Orders</h2>
+            <p>Customer orders পরিচালনা করুন।</p>
+          </div>
+
+          <button
+            class="secondary-btn"
+            onclick="loadOrders()">
+
+            🔄 Refresh
+
+          </button>
+
+        </div>
+
+
+        <div class="toolbar">
+
+          <input
+            type="search"
+            id="orderSearch"
+            placeholder="🔎 Search order/customer...">
+
+
+          <select id="orderStatusFilter">
+
+            <option value="all">
+              All Status
+            </option>
+
+            <option value="Pending">
+              Pending
+            </option>
+
+            <option value="Confirmed">
+              Confirmed
+            </option>
+
+            <option value="Processing">
+              Processing
+            </option>
+
+            <option value="Shipped">
+              Shipped
+            </option>
+
+            <option value="Delivered">
+              Delivered
+            </option>
+
+            <option value="Cancelled">
+              Cancelled
+            </option>
+
+          </select>
+
+        </div>
+
+
+        <div class="panel-card">
+
+          <div class="table-wrapper">
+
+            <table>
+
+              <thead>
+
+                <tr>
+                  <th>Order ID</th>
+                  <th>Customer</th>
+                  <th>Phone</th>
+                  <th>Items</th>
+                  <th>Total</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th>Action</th>
+                </tr>
+
+              </thead>
+
+              <tbody id="ordersTable">
+
+                <tr>
+                  <td colspan="8" class="empty-cell">
+                    Loading orders...
+                  </td>
+                </tr>
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- ========================= -->
+      <!-- USERS -->
+      <!-- ========================= -->
+
+      <section id="usersSection" class="admin-section">
+
+        <div class="section-heading">
+
+          <div>
+            <h2>Users</h2>
+            <p>Website users-এর তথ্য দেখুন।</p>
+          </div>
+
+          <button
+            class="secondary-btn"
+            onclick="loadUsers()">
+
+            🔄 Refresh
+
+          </button>
+
+        </div>
+
+
+        <div class="panel-card">
+
+          <div class="table-wrapper">
+
+            <table>
+
+              <thead>
+
+                <tr>
+                  <th>User</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Created</th>
+                  <th>User ID</th>
+                </tr>
+
+              </thead>
+
+              <tbody id="usersTable">
+
+                <tr>
+                  <td colspan="5" class="empty-cell">
+                    Loading users...
+                  </td>
+                </tr>
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- ========================= -->
+      <!-- COUPONS -->
+      <!-- ========================= -->
+
+      <section id="couponsSection" class="admin-section">
+
+        <div class="section-heading">
+
+          <div>
+            <h2>Coupons</h2>
+            <p>Discount coupon তৈরি এবং পরিচালনা করুন।</p>
+          </div>
+
+          <button
+            class="primary-btn"
+            onclick="openCouponModal()">
+
+            ➕ Create Coupon
+
+          </button>
+
+        </div>
+
+
+        <div
+          id="couponsGrid"
+          class="coupons-grid">
+
+          <div class="loading-card">
+            Loading coupons...
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- ========================= -->
+      <!-- SETTINGS -->
+      <!-- ========================= -->
+
+      <section id="settingsSection" class="admin-section">
+
+        <div class="section-heading">
+
+          <div>
+            <h2>Store Settings</h2>
+            <p>আপনার দোকানের গুরুত্বপূর্ণ সেটিংস।</p>
+          </div>
+
+        </div>
+
+
+        <div class="settings-grid">
+
+          <div class="panel-card">
+
+            <div class="panel-header">
+
+              <div>
+                <h3>Delivery Settings</h3>
+                <p>Delivery charge সেট করুন।</p>
+              </div>
+
+            </div>
+
+
+            <form id="deliverySettingsForm">
+
+              <div class="form-group">
+
+                <label for="deliveryCharge">
+                  Delivery Charge (QAR)
+                </label>
+
+                <input
+                  type="number"
+                  id="deliveryCharge"
+                  min="0"
+                  step="0.01"
+                  placeholder="যেমন: 10">
+
+              </div>
+
+
+              <button
+                type="submit"
+                class="primary-btn">
+
+                💾 Save Settings
+
+              </button>
+
+            </form>
+
+          </div>
+
+
+          <div class="panel-card">
+
+            <div class="panel-header">
+
+              <div>
+                <h3>Admin Information</h3>
+                <p>Admin account information</p>
+              </div>
+
+            </div>
+
+            <div class="admin-details">
+
+              <div>
+                <span>Name</span>
+                <strong id="settingsAdminName">
+                  Admin
+                </strong>
+              </div>
+
+              <div>
+                <span>Email</span>
+                <strong id="settingsAdminEmail">
+                  Loading...
+                </strong>
+              </div>
+
+              <div>
+                <span>Role</span>
+                <strong>Super Admin</strong>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+    </main>
+
+  </div>
+
+
+  <!-- ========================= -->
+  <!-- PRODUCT MODAL -->
+  <!-- ========================= -->
+
+  <div
+    id="productModal"
+    class="modal-overlay hidden">
+
+    <div class="modal-box large-modal">
+
+      <div class="modal-header">
+
+        <div>
+          <h2 id="productModalTitle">
+            Add Product
+          </h2>
+
+          <p>
+            নতুন পণ্যের তথ্য দিন।
+          </p>
+        </div>
+
+        <button
+          class="modal-close"
+          onclick="closeProductModal()">
+
+          ×
+
+        </button>
+
+      </div>
+
+
+      <form id="productForm">
+
+        <input
+          type="hidden"
+          id="productId">
+
+
+        <div class="form-grid">
+
+          <div class="form-group full-width">
+
+            <label>
+              Product Name *
+            </label>
+
+            <input
+              type="text"
+              id="productName"
+              required
+              placeholder="যেমন: Premium Running Shoe">
+
+          </div>
+
+
+          <div class="form-group">
+
+            <label>
+              Category *
+            </label>
+
+            <select id="productCategory" required>
+
+              <option value="">
+                Select Category
+              </option>
+
+              <option value="Men">
+                Men
+              </option>
+
+              <option value="Women">
+                Women
+              </option>
+
+              <option value="Kids">
+                Kids
+              </option>
+
+              <option value="Sports">
+                Sports
+              </option>
+
+              <option value="Casual">
+                Casual
+              </option>
+
+            </select>
+
+          </div>
+
+
+          <div class="form-group">
+
+            <label>
+              Price (QAR) *
+            </label>
+
+            <input
+              type="number"
+              id="productPrice"
+              min="0"
+              step="0.01"
+              required
+              placeholder="99.00">
+
+          </div>
+
+
+          <div class="form-group">
+
+            <label>
+              Old Price (QAR)
+            </label>
+
+            <input
+              type="number"
+              id="productOldPrice"
+              min="0"
+              step="0.01"
+              placeholder="129.00">
+
+          </div>
+
+
+          <div class="form-group">
+
+            <label>
+              Stock *
+            </label>
+
+            <input
+              type="number"
+              id="productStock"
+              min="0"
+              required
+              placeholder="20">
+
+          </div>
+
+
+          <div class="form-group">
+
+            <label>
+              Sizes
+            </label>
+
+            <input
+              type="text"
+              id="productSizes"
+              placeholder="39, 40, 41, 42, 43">
+
+            <small>
+              কমা দিয়ে আলাদা করুন
+            </small>
+
+          </div>
+
+
+          <div class="form-group">
+
+            <label>
+              Colors
+            </label>
+
+            <input
+              type="text"
+              id="productColors"
+              placeholder="Black, White, Red">
+
+            <small>
+              কমা দিয়ে আলাদা করুন
+            </small>
+
+          </div>
+
+
+          <div class="form-group full-width">
+
+            <label>
+              Product Description
+            </label>
+
+            <textarea
+              id="productDescription"
+              rows="5"
+              placeholder="পণ্যের বিস্তারিত বর্ণনা লিখুন..."></textarea>
+
+          </div>
+
+
+          <div class="form-group full-width">
+
+              <label>
+                Product Image URLs
+              </label>
+
+              <textarea
+                id="productImageUrls"
+                rows="4"
+                placeholder="প্রতি লাইনে একটি Image URL দিন।
+যেমন:
+https://example.com/shoe1.jpg
+https://example.com/shoe2.jpg"></textarea>
+
+              <small>
+                Firebase Storage ব্যবহার করা হচ্ছে না। প্রতি লাইনে একটি সরাসরি Image URL দিন।
+              </small>
+
+              <div
+                id="imagePreview"
+                class="image-preview">
+              </div>
+
+            </div>
+
+
+          <div class="checkbox-group full-width">
+
+            <label class="checkbox-label">
+
+              <input
+                type="checkbox"
+                id="productFeatured">
+
+              <span>
+                ⭐ Featured Product হিসেবে দেখান
+              </span>
+
+            </label>
+
+          </div>
+
+        </div>
+
+
+        <div class="modal-footer">
+
+          <button
+            type="button"
+            class="secondary-btn"
+            onclick="closeProductModal()">
+
+            Cancel
+
+          </button>
+
+          <button
+            type="submit"
+            class="primary-btn"
+            id="saveProductBtn">
+
+            💾 Save Product
+
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+
+  </div>
+
+
+  <!-- ========================= -->
+  <!-- ORDER DETAILS MODAL -->
+  <!-- ========================= -->
+
+  <div
+    id="orderModal"
+    class="modal-overlay hidden">
+
+    <div class="modal-box">
+
+      <div class="modal-header">
+
+        <div>
+          <h2>Order Details</h2>
+          <p id="orderModalId">Order</p>
+        </div>
+
+        <button
+          class="modal-close"
+          onclick="closeOrderModal()">
+
+          ×
+
+        </button>
+
+      </div>
+
+
+      <div id="orderDetailsContent">
+
+        Loading...
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- ========================= -->
+  <!-- COUPON MODAL -->
+  <!-- ========================= -->
+
+  <div
+    id="couponModal"
+    class="modal-overlay hidden">
+
+    <div class="modal-box">
+
+      <div class="modal-header">
+
+        <div>
+          <h2>Create Coupon</h2>
+          <p>নতুন discount coupon তৈরি করুন।</p>
+        </div>
+
+        <button
+          class="modal-close"
+          onclick="closeCouponModal()">
+
+          ×
+
+        </button>
+
+      </div>
+
+
+      <form id="couponForm">
+
+        <div class="form-group">
+
+          <label>
+            Coupon Code *
+          </label>
+
+          <input
+            type="text"
+            id="couponCode"
+            required
+            placeholder="যেমন: SAVE20">
+
+        </div>
+
+
+        <div class="form-group">
+
+          <label>
+            Discount Type *
+          </label>
+
+          <select id="couponType">
+
+            <option value="percent">
+              Percentage (%)
+            </option>
+
+            <option value="fixed">
+              Fixed Amount (QAR)
+            </option>
+
+          </select>
+
+        </div>
+
+
+        <div class="form-group">
+
+          <label>
+            Discount Value *
+          </label>
+
+          <input
+            type="number"
+            id="couponValue"
+            min="0"
+            step="0.01"
+            required
+            placeholder="20">
+
+        </div>
+
+
+        <div class="form-group">
+
+          <label>
+            Minimum Order (QAR)
+          </label>
+
+          <input
+            type="number"
+            id="couponMinOrder"
+            min="0"
+            step="0.01"
+            placeholder="0">
+
+        </div>
+
+
+        <div class="form-group">
+
+          <label>
+            Maximum Discount (QAR)
+          </label>
+
+          <input
+            type="number"
+            id="couponMaxDiscount"
+            min="0"
+            step="0.01"
+            placeholder="Optional">
+
+        </div>
+
+
+        <div class="form-group">
+
+          <label>
+            Expiry Date
+          </label>
+
+          <input
+            type="date"
+            id="couponExpiry">
+
+        </div>
+
+
+        <div class="checkbox-group">
+
+          <label class="checkbox-label">
+
+            <input
+              type="checkbox"
+              id="couponActive"
+              checked>
+
+            <span>
+              Coupon Active
+            </span>
+
+          </label>
+
+        </div>
+
+
+        <div class="modal-footer">
+
+          <button
+            type="button"
+            class="secondary-btn"
+            onclick="closeCouponModal()">
+
+            Cancel
+
+          </button>
+
+          <button
+            type="submit"
+            class="primary-btn">
+
+            💾 Save Coupon
+
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+
+  </div>
+
+
+  <!-- Toast -->
+  <div
+    id="adminToast"
+    class="admin-toast">
+  </div>
+
+
+  <!-- JavaScript -->
+  <script type="module" src="admin.js"></script>
+
+</body>
+</html>

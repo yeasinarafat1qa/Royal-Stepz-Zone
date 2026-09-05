@@ -1,0 +1,1459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Royale Stepz Zone | Premium Footwear</title>
+
+  <meta
+    name="description"
+    content="Royale Stepz Zone - Premium footwear for every step."
+  >
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- =========================
+       HEADER
+  ========================== -->
+
+  <header class="site-header">
+
+    <div class="container header-inner">
+
+      <a href="#" class="logo">
+        <span class="logo-main">ROYALE</span>
+        <span class="logo-sub">STEPZ ZONE</span>
+      </a>
+
+      <nav class="main-nav">
+
+        <a href="#home">Home</a>
+        <a href="#shop">Shop</a>
+        <a href="#categories">Categories</a>
+        <a href="#account">Account</a>
+
+      </nav>
+
+      <div class="header-actions">
+
+        <button
+          class="icon-btn"
+          onclick="document.getElementById('searchBox').classList.toggle('show')"
+          aria-label="Search"
+        >
+          🔍
+        </button>
+
+        <button
+          class="cart-btn"
+          onclick="openCart()"
+          aria-label="Cart"
+        >
+          🛒
+          <span class="cart-count">0</span>
+        </button>
+
+        <button
+          class="menu-btn"
+          onclick="toggleMobileMenu()"
+          aria-label="Menu"
+        >
+          ☰
+        </button>
+
+      </div>
+
+    </div>
+
+    <!-- Search -->
+
+    <div id="searchBox" class="search-box">
+
+      <div class="container">
+
+        <input
+          type="search"
+          id="searchInput"
+          placeholder="Search shoes, sandals, sneakers..."
+          autocomplete="off"
+        >
+
+      </div>
+
+    </div>
+
+  </header>
+
+
+  <!-- =========================
+       MOBILE MENU
+  ========================== -->
+
+  <div id="mobileMenu" class="mobile-menu">
+
+    <button onclick="closeMobileMenu()">×</button>
+
+    <a href="#home" onclick="closeMobileMenu()">Home</a>
+    <a href="#shop" onclick="closeMobileMenu()">Shop</a>
+    <a href="#categories" onclick="closeMobileMenu()">Categories</a>
+    <a href="#account" onclick="closeMobileMenu()">Account</a>
+
+  </div>
+
+
+  <!-- =========================
+       HERO
+  ========================== -->
+
+  <main>
+
+    <section id="home" class="hero">
+
+      <div class="container hero-content">
+
+        <div class="hero-text">
+
+          <span class="hero-small">
+            WALK WITH CONFIDENCE
+          </span>
+
+          <h1>
+            Step Into<br>
+            <strong>Royalty.</strong>
+          </h1>
+
+          <p>
+            Discover premium footwear designed
+            for comfort, style and confidence.
+          </p>
+
+          <div class="hero-buttons">
+
+            <a href="#shop" class="btn btn-primary">
+              Shop Collection
+            </a>
+
+            <a href="#categories" class="btn btn-outline">
+              Explore Categories
+            </a>
+
+          </div>
+
+        </div>
+
+        <div class="hero-visual">
+
+          <div class="hero-circle"></div>
+
+          <div class="hero-shoe">
+            👟
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         BENEFITS
+    ========================== -->
+
+    <section class="benefits">
+
+      <div class="container benefits-grid">
+
+        <div class="benefit">
+
+          <div class="benefit-icon">
+            🚚
+          </div>
+
+          <div>
+            <h3>Fast Delivery</h3>
+            <p>Quick & reliable delivery</p>
+          </div>
+
+        </div>
+
+        <div class="benefit">
+
+          <div class="benefit-icon">
+            🛡️
+          </div>
+
+          <div>
+            <h3>Quality Guaranteed</h3>
+            <p>Premium quality products</p>
+          </div>
+
+        </div>
+
+        <div class="benefit">
+
+          <div class="benefit-icon">
+            💳
+          </div>
+
+          <div>
+            <h3>Cash on Delivery</h3>
+            <p>Pay when you receive</p>
+          </div>
+
+        </div>
+
+        <div class="benefit">
+
+          <div class="benefit-icon">
+            💬
+          </div>
+
+          <div>
+            <h3>WhatsApp Support</h3>
+            <p>We're here to help</p>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         CATEGORIES
+    ========================== -->
+
+    <section id="categories" class="section">
+
+      <div class="container">
+
+        <div class="section-heading">
+
+          <div>
+
+            <span class="eyebrow">
+              SHOP BY STYLE
+            </span>
+
+            <h2>
+              Find Your Perfect Pair
+            </h2>
+
+          </div>
+
+          <a href="#shop" class="text-link">
+            View All →
+          </a>
+
+        </div>
+
+
+        <div class="category-grid">
+
+          <a
+            href="#shop"
+            class="category-card"
+            onclick="setCategory('Sneakers')"
+          >
+
+            <div class="category-icon">
+              👟
+            </div>
+
+            <h3>Sneakers</h3>
+
+            <p>Modern everyday style</p>
+
+          </a>
+
+
+          <a
+            href="#shop"
+            class="category-card"
+            onclick="setCategory('Formal')"
+          >
+
+            <div class="category-icon">
+              👞
+            </div>
+
+            <h3>Formal</h3>
+
+            <p>Classic & elegant</p>
+
+          </a>
+
+
+          <a
+            href="#shop"
+            class="category-card"
+            onclick="setCategory('Sandals')"
+          >
+
+            <div class="category-icon">
+              🩴
+            </div>
+
+            <h3>Sandals</h3>
+
+            <p>Comfort for every day</p>
+
+          </a>
+
+
+          <a
+            href="#shop"
+            class="category-card"
+            onclick="setCategory('Sports')"
+          >
+
+            <div class="category-icon">
+              🏃
+            </div>
+
+            <h3>Sports</h3>
+
+            <p>Performance & comfort</p>
+
+          </a>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         FEATURED PRODUCTS
+    ========================== -->
+
+    <section class="section featured-section">
+
+      <div class="container">
+
+        <div class="section-heading">
+
+          <div>
+
+            <span class="eyebrow">
+              OUR COLLECTION
+            </span>
+
+            <h2>
+              Featured Products
+            </h2>
+
+          </div>
+
+          <a href="#shop" class="text-link">
+            Shop All →
+          </a>
+
+        </div>
+
+
+        <div
+          id="featuredGrid"
+          class="product-grid"
+        >
+
+          <div class="loading">
+            Loading products...
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         SHOP
+    ========================== -->
+
+    <section id="shop" class="section shop-section">
+
+      <div class="container">
+
+        <div class="section-heading">
+
+          <div>
+
+            <span class="eyebrow">
+              SHOP
+            </span>
+
+            <h2>
+              All Products
+            </h2>
+
+          </div>
+
+        </div>
+
+
+        <div class="shop-toolbar">
+
+          <div class="shop-search">
+
+            <input
+              type="search"
+              id="shopSearchInput"
+              placeholder="Search products..."
+              oninput="syncShopSearch(this.value)"
+            >
+
+          </div>
+
+
+          <select
+            id="categoryFilter"
+            class="category-filter"
+          >
+
+            <option value="">
+              All Categories
+            </option>
+
+          </select>
+
+        </div>
+
+
+        <div
+          id="productGrid"
+          class="product-grid"
+        >
+
+          <div class="loading">
+            Loading products...
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         ACCOUNT
+    ========================== -->
+
+    <section id="account" class="section account-section">
+
+      <div class="container">
+
+        <div class="section-heading">
+
+          <div>
+
+            <span class="eyebrow">
+              MY ACCOUNT
+            </span>
+
+            <h2>
+              Account
+            </h2>
+
+          </div>
+
+        </div>
+
+
+        <!-- LOGIN -->
+
+        <div
+          id="loginPanel"
+          class="account-panel"
+        >
+
+          <h3>Welcome Back</h3>
+
+          <p>
+            Login to manage your orders.
+          </p>
+
+
+          <form
+            id="loginForm"
+            onsubmit="handleLogin(event)"
+          >
+
+            <input
+              type="email"
+              id="loginEmail"
+              placeholder="Email address"
+              required
+            >
+
+            <input
+              type="password"
+              id="loginPassword"
+              placeholder="Password"
+              required
+            >
+
+            <button
+              type="submit"
+              class="btn btn-primary"
+            >
+              Login
+            </button>
+
+          </form>
+
+
+          <p class="account-switch">
+
+            Don't have an account?
+
+            <button
+              onclick="showRegister()"
+              class="link-button"
+            >
+              Create Account
+            </button>
+
+          </p>
+
+        </div>
+
+
+        <!-- REGISTER -->
+
+        <div
+          id="registerPanel"
+          class="account-panel"
+          style="display:none;"
+        >
+
+          <h3>Create Account</h3>
+
+          <p>
+            Join Royale Stepz Zone today.
+          </p>
+
+
+          <form
+            id="registerForm"
+            onsubmit="handleRegister(event)"
+          >
+
+            <input
+              type="text"
+              id="registerName"
+              placeholder="Full name"
+              required
+            >
+
+            <input
+              type="tel"
+              id="registerPhone"
+              placeholder="Phone number"
+              required
+            >
+
+            <input
+              type="email"
+              id="registerEmail"
+              placeholder="Email address"
+              required
+            >
+
+            <input
+              type="password"
+              id="registerPassword"
+              placeholder="Password"
+              minlength="6"
+              required
+            >
+
+            <button
+              type="submit"
+              class="btn btn-primary"
+            >
+              Create Account
+            </button>
+
+          </form>
+
+
+          <p class="account-switch">
+
+            Already have an account?
+
+            <button
+              onclick="showLogin()"
+              class="link-button"
+            >
+              Login
+            </button>
+
+          </p>
+
+        </div>
+
+
+        <!-- LOGGED IN -->
+
+        <div
+          id="loggedInPanel"
+          class="account-panel"
+          style="display:none;"
+        >
+
+          <div class="account-user">
+
+            <div class="user-avatar">
+              👤
+            </div>
+
+            <div>
+
+              <span>
+                Logged in as
+              </span>
+
+              <strong data-auth-user>
+                User
+              </strong>
+
+            </div>
+
+          </div>
+
+
+          <div class="account-actions">
+
+            <button
+              class="btn btn-primary"
+              onclick="openOrders()"
+            >
+              My Orders
+            </button>
+
+            <button
+              class="btn btn-outline"
+              onclick="logoutUser(); showLogin();"
+            >
+              Logout
+            </button>
+
+          </div>
+
+        </div>
+
+
+        <!-- ORDERS -->
+
+        <div
+          id="ordersPanel"
+          class="account-panel"
+          style="display:none;"
+        >
+
+          <div class="orders-heading">
+
+            <h3>My Orders</h3>
+
+            <button
+              class="btn btn-outline"
+              onclick="closeOrders()"
+            >
+              Back
+            </button>
+
+          </div>
+
+
+          <div id="myOrders">
+
+            <div class="loading">
+              Loading orders...
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <!-- =========================
+       CART DRAWER
+  ========================== -->
+
+  <div
+    id="cartOverlay"
+    class="overlay"
+    onclick="closeCart()"
+  ></div>
+
+
+  <aside
+    id="cartDrawer"
+    class="cart-drawer"
+  >
+
+    <div class="drawer-header">
+
+      <h2>Your Cart</h2>
+
+      <button
+        onclick="closeCart()"
+        class="drawer-close"
+      >
+        ×
+      </button>
+
+    </div>
+
+
+    <div
+      id="cartItems"
+      class="cart-items"
+    ></div>
+
+
+    <div class="cart-footer">
+
+      <div class="cart-total-row">
+
+        <span>Subtotal</span>
+
+        <strong id="cartSubtotal">
+          QAR 0.00
+        </strong>
+
+      </div>
+
+
+      <button
+        class="btn btn-primary btn-large"
+        onclick="openCheckout()"
+      >
+        Proceed to Checkout
+      </button>
+
+    </div>
+
+  </aside>
+
+
+  <!-- =========================
+       CHECKOUT MODAL
+  ========================== -->
+
+  <div
+    id="checkoutModal"
+    class="modal"
+  >
+
+    <div class="modal-overlay">
+
+      <div class="checkout-modal">
+
+        <button
+          class="modal-close"
+          onclick="closeCheckout()"
+        >
+          ×
+        </button>
+
+
+        <h2>
+          Checkout
+        </h2>
+
+        <p>
+          Complete your delivery information.
+        </p>
+
+
+        <form
+          id="checkoutForm"
+          onsubmit="handleCheckout(event)"
+        >
+
+          <label>
+            Full Name
+          </label>
+
+          <input
+            type="text"
+            id="checkoutName"
+            required
+          >
+
+
+          <label>
+            Phone Number
+          </label>
+
+          <input
+            type="tel"
+            id="checkoutPhone"
+            required
+          >
+
+
+          <label>
+            Delivery Address
+          </label>
+
+          <textarea
+            id="checkoutAddress"
+            rows="4"
+            required
+          ></textarea>
+
+
+          <label>
+            Payment Method
+          </label>
+
+          <div class="payment-option">
+
+            <input
+              type="radio"
+              name="payment"
+              value="Cash on Delivery"
+              checked
+            >
+
+            <span>
+              Cash on Delivery
+            </span>
+
+          </div>
+
+
+          <div class="checkout-summary">
+
+            <div>
+              <span>Subtotal</span>
+
+              <strong id="checkoutSubtotal">
+                QAR 0.00
+              </strong>
+            </div>
+
+
+            <div>
+              <span>Delivery</span>
+
+              <strong id="checkoutDelivery">
+                QAR 0.00
+              </strong>
+            </div>
+
+
+            <div class="checkout-total">
+
+              <span>Total</span>
+
+              <strong id="checkoutTotal">
+                QAR 0.00
+              </strong>
+
+            </div>
+
+          </div>
+
+
+          <button
+            type="submit"
+            class="btn btn-primary btn-large"
+          >
+            Place Order
+          </button>
+
+        </form>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- =========================
+       PRODUCT MODAL
+  ========================== -->
+
+  <div
+    id="productModal"
+    class="product-modal-container"
+  ></div>
+
+
+  <!-- =========================
+       FOOTER
+  ========================== -->
+
+  <footer class="site-footer">
+
+    <div class="container footer-grid">
+
+
+      <div class="footer-brand">
+
+        <a href="#home" class="logo">
+
+          <span class="logo-main">
+            ROYALE
+          </span>
+
+          <span class="logo-sub">
+            STEPZ ZONE
+          </span>
+
+        </a>
+
+        <p>
+          Premium footwear for every step.
+          Walk with confidence.
+        </p>
+
+      </div>
+
+
+      <div class="footer-column">
+
+        <h3>Quick Links</h3>
+
+        <a href="#home">Home</a>
+        <a href="#shop">Shop</a>
+        <a href="#categories">Categories</a>
+        <a href="#account">Account</a>
+
+      </div>
+
+
+      <div class="footer-column">
+
+        <h3>Customer Service</h3>
+
+        <a href="#account">My Account</a>
+        <a href="#shop">Track Orders</a>
+        <a href="#home">Delivery Information</a>
+
+      </div>
+
+
+      <div class="footer-column">
+
+        <h3>Contact</h3>
+
+        <p>📱 WhatsApp Support</p>
+        <p>📍 Qatar</p>
+        <p>🌐 Online Store</p>
+
+      </div>
+
+    </div>
+
+
+    <div class="footer-bottom">
+
+      <div class="container">
+
+        <p>
+          © 2026 Royale Stepz Zone.
+          All rights reserved.
+        </p>
+
+      </div>
+
+    </div>
+
+  </footer>
+
+
+  <!-- =========================
+       TOAST
+  ========================== -->
+
+  <div
+    id="toast"
+    class="toast"
+  ></div>
+
+
+  <!-- =========================
+       JAVASCRIPT
+  ========================== -->
+
+  <script type="module" src="app.js"></script>
+
+
+  <script>
+
+    // =========================
+    // UI FUNCTIONS
+    // =========================
+
+    function openCart() {
+
+      document
+        .getElementById("cartDrawer")
+        .classList.add("show");
+
+      document
+        .getElementById("cartOverlay")
+        .classList.add("show");
+
+      renderCart();
+    }
+
+
+    function closeCart() {
+
+      document
+        .getElementById("cartDrawer")
+        .classList.remove("show");
+
+      document
+        .getElementById("cartOverlay")
+        .classList.remove("show");
+    }
+
+
+    function toggleMobileMenu() {
+
+      document
+        .getElementById("mobileMenu")
+        .classList.toggle("show");
+    }
+
+
+    function closeMobileMenu() {
+
+      document
+        .getElementById("mobileMenu")
+        .classList.remove("show");
+    }
+
+
+    function showRegister() {
+
+      document
+        .getElementById("loginPanel")
+        .style.display = "none";
+
+      document
+        .getElementById("registerPanel")
+        .style.display = "block";
+
+    }
+
+
+    function showLogin() {
+
+      document
+        .getElementById("registerPanel")
+        .style.display = "none";
+
+      document
+        .getElementById("loginPanel")
+        .style.display = "block";
+
+    }
+
+
+    function openOrders() {
+
+      if (!currentUser) {
+
+        showLogin();
+
+        return;
+      }
+
+      document
+        .getElementById("loginPanel")
+        .style.display = "none";
+
+      document
+        .getElementById("registerPanel")
+        .style.display = "none";
+
+      document
+        .getElementById("loggedInPanel")
+        .style.display = "none";
+
+      document
+        .getElementById("ordersPanel")
+        .style.display = "block";
+
+      loadMyOrders();
+    }
+
+
+    function closeOrders() {
+
+      document
+        .getElementById("ordersPanel")
+        .style.display = "none";
+
+      document
+        .getElementById("loggedInPanel")
+        .style.display = "block";
+    }
+
+
+    function openCheckout() {
+
+      if (!cart.length) {
+
+        showToast("Your cart is empty");
+
+        return;
+      }
+
+      if (!currentUser) {
+
+        closeCart();
+
+        document
+          .getElementById("account")
+          .scrollIntoView({
+            behavior: "smooth"
+          });
+
+        showToast("Please login before checkout");
+
+        return;
+      }
+
+      closeCart();
+
+      document
+        .getElementById("checkoutModal")
+        .classList.add("show");
+
+      updateCheckoutSummary();
+    }
+
+
+    function closeCheckout() {
+
+      document
+        .getElementById("checkoutModal")
+        .classList.remove("show");
+    }
+
+
+    function syncShopSearch(value) {
+
+      const input =
+        document.getElementById("searchInput");
+
+      if (input) {
+        input.value = value;
+      }
+
+      searchProducts();
+    }
+
+
+    function setCategory(category) {
+
+      setTimeout(() => {
+
+        const select =
+          document.getElementById("categoryFilter");
+
+        if (!select) return;
+
+        const option =
+          [...select.options].find(
+            option =>
+              option.value.toLowerCase() ===
+              category.toLowerCase()
+          );
+
+        if (option) {
+
+          select.value = option.value;
+
+          filterCategory();
+
+        } else {
+
+          select.value = "";
+
+          renderProducts(
+            products.filter(product =>
+              String(product.category || "")
+                .toLowerCase()
+                .includes(category.toLowerCase())
+            )
+          );
+        }
+
+      }, 100);
+    }
+
+
+    async function handleLogin(event) {
+
+      event.preventDefault();
+
+      const email =
+        document.getElementById("loginEmail").value.trim();
+
+      const password =
+        document.getElementById("loginPassword").value;
+
+      const success =
+        await loginUser(email, password);
+
+      if (success) {
+
+        document
+          .getElementById("loginPanel")
+          .style.display = "none";
+
+        document
+          .getElementById("loggedInPanel")
+          .style.display = "block";
+
+      }
+    }
+
+
+    async function handleRegister(event) {
+
+      event.preventDefault();
+
+      const name =
+        document.getElementById("registerName").value.trim();
+
+      const phone =
+        document.getElementById("registerPhone").value.trim();
+
+      const email =
+        document.getElementById("registerEmail").value.trim();
+
+      const password =
+        document.getElementById("registerPassword").value;
+
+      const success =
+        await registerUser(
+          name,
+          phone,
+          email,
+          password
+        );
+
+      if (success) {
+
+        document
+          .getElementById("registerPanel")
+          .style.display = "none";
+
+        document
+          .getElementById("loggedInPanel")
+          .style.display = "block";
+
+      }
+    }
+
+
+    async function updateCheckoutSummary() {
+
+      const subtotal =
+        cart.reduce(
+          (sum, item) =>
+            sum +
+            Number(item.price || 0) *
+            Number(item.quantity || 0),
+          0
+        );
+
+      let delivery = 0;
+
+      try {
+
+        const snapshot =
+          await get(ref(db, "settings/deliveryCharge"));
+
+        if (snapshot.exists()) {
+          delivery =
+            Number(snapshot.val() || 0);
+        }
+
+      } catch (error) {
+
+        console.error(error);
+      }
+
+
+      const total =
+        subtotal + delivery;
+
+
+      document
+        .getElementById("checkoutSubtotal")
+        .textContent =
+        `QAR ${subtotal.toFixed(2)}`;
+
+
+      document
+        .getElementById("checkoutDelivery")
+        .textContent =
+        `QAR ${delivery.toFixed(2)}`;
+
+
+      document
+        .getElementById("checkoutTotal")
+        .textContent =
+        `QAR ${total.toFixed(2)}`;
+
+
+      window.checkoutDelivery = delivery;
+      window.checkoutSubtotal = subtotal;
+      window.checkoutTotal = total;
+    }
+
+
+    async function handleCheckout(event) {
+
+      event.preventDefault();
+
+      if (!currentUser) {
+
+        showToast("Please login first");
+
+        return;
+      }
+
+
+      const customerName =
+        document
+          .getElementById("checkoutName")
+          .value.trim();
+
+      const phone =
+        document
+          .getElementById("checkoutPhone")
+          .value.trim();
+
+      const address =
+        document
+          .getElementById("checkoutAddress")
+          .value.trim();
+
+
+      if (!customerName || !phone || !address) {
+
+        showToast(
+          "Please complete all information"
+        );
+
+        return;
+      }
+
+
+      await updateCheckoutSummary();
+
+
+      const orderData = {
+
+        customerName,
+
+        phone,
+
+        address,
+
+        paymentMethod:
+          "Cash on Delivery",
+
+        deliveryCharge:
+          Number(window.checkoutDelivery || 0),
+
+        discount: 0,
+
+        couponCode: "",
+
+        total:
+          Number(window.checkoutTotal || 0)
+      };
+
+
+      const orderId =
+        await createOrder(orderData);
+
+
+      if (orderId) {
+
+        document
+          .getElementById("checkoutForm")
+          .reset();
+
+        closeCheckout();
+
+        alert(
+          `Order placed successfully!\n\nOrder ID: ${orderId}`
+        );
+
+      }
+    }
+
+
+    // Keep account UI synchronized
+    document.addEventListener(
+      "DOMContentLoaded",
+      () => {
+
+        const observer =
+          new MutationObserver(() => {
+
+            if (currentUser) {
+
+              document
+                .getElementById("loginPanel")
+                .style.display = "none";
+
+              document
+                .getElementById("registerPanel")
+                .style.display = "none";
+
+              document
+                .getElementById("loggedInPanel")
+                .style.display = "block";
+
+            }
+
+          });
+
+
+        observer.observe(
+          document.body,
+          {
+            childList: true,
+            subtree: true
+          }
+        );
+
+      }
+    );
+
+  </script>
+
+</body>
+</html>
