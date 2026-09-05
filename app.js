@@ -873,7 +873,14 @@ function updateAuthUI() {
     el.style.display =
       currentUser ? "" : "none";
   });
-}
+  const adminButton = document.getElementById("adminPanelBtn");
+
+  if (adminButton) {
+    adminButton.style.display =
+      currentUser && currentUser.uid === ADMIN_UID
+        ? "inline-block"
+        : "none";
+  }
 
 
 // ===============================
