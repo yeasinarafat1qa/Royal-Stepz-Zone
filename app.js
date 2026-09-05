@@ -1,3 +1,2449 @@
+```javascript
+import {
+  auth,
+  db,
+  ADMIN_UID,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  ref,
+  get,
+  set,
+  push,
+  query,
+  orderByChild,
+  equalTo
+} from "./firebase.js";
+
+
+// ===============================
+// ROYALE STEPZ ZONE
+// Customer App JavaScript
+// ===============================
+
+
+// ===============================
+// WHATSAPP
+// ===============================
+
+const SHOP_WHATSAPP_NUMBER = "97430408610";
+
+
+// ===============================
+// GLOBAL DATA
+// ===============================
+
+let products = [];
+let cart = JSON.parse(
+  localStorage.getItem("royaleCart") || "[]"
+);
+let currentUser = null;
+
+
+// ===============================
+// HELPER
+// ===============================
+
+function esc(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+
+function money(value) {
+  return `QAR ${Number(value || 0).toFixed(2)}`;
+}
+
+
+// ===============================
+// IMAGE HELPERS
+// ===============================
+
+function normalizeImageUrl(url) {
+  const value = String(url || "").trim();
+
+  if (!value) return "";
+
+  if (
+    value.includes("github.com") &&
+    value.includes("/blob/")
+  ) {
+    return value
+      .replace(
+        "https://github.com/",
+        "https://raw.githubusercontent.com/"
+      )
+      .replace("/blob/", "/");
+  }
+
+  return value;
+}
+
+
+function getProductImage(product) {
+  return normalizeImageUrl(
+    product?.image ||
+    product?.images?.[0]?.url ||
+    product?.images?.[0] ||
+    ""
+  );
+}
+
+
+function imageError(img) {
+  if (!img) return;
+
+  if (img.dataset.fallbackApplied === "1") {
+    return;
+  }
+
+  img.dataset.fallbackApplied = "1";
+  img.removeAttribute("src");
+  img.classList.add("image-error");
+}
+
+
+// ===============================
+// CART STORAGE
+// ===============================
+
+function saveCart() {
+  localStorage.setItem(
+    "royaleCart",
+    JSON.stringify(cart)
+  );
+
+  updateCartCount();
+}
+
+
+function updateCartCount() {
+  const count = cart.reduce(
+    (sum, item) =>
+      sum + Number(item.quantity || 0),
+    0
+  );
+
+  document
+    .querySelectorAll(".cart-count")
+    .forEach(el => {
+      el.textContent = count;
+    });
+
+  document
+    .querySelectorAll("[data-cart-count]")
+    .forEach(el => {
+      el.textContent = count;
+    });
+}
+
+
+// ===============================
+// LOAD PRODUCTS
+// ===============================
+
+async function loadProducts() {
+  try {
+    const snapshot = await get(
+      ref(db, "products")
+    );
+
+    products = [];
+
+    if (snapshot.exists()) {
+      const data = snapshot.val();
+
+      Object.entries(data).forEach(
+        ([id, product]) => {
+          products.push({
+            id,
+            ...product
+          });
+        }
+      );
+    }
+
+    products.sort(
+      (a, b) =>
+        Number(b.createdAt || 0) -
+        Number(a.createdAt || 0)
+    );
+
+    renderProducts(products);
+    renderFeaturedProducts();
+    populateCategories();
+
+  } catch (error) {
+    console.error(
+      "Product loading error:",
+      error
+    );
+
+    const container =
+      document.getElementById(
+        "productGrid"
+      );
+
+    if (container) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>Products could not be loaded</h3>
+          <p>Please check your Firebase settings.</p>
+        </div>
+      `;
+    }
+  }
+}
+
+
+// ===============================
+// PRODUCT CARD
+// ===============================
+
+function productCard(product) {
+
+  const image =
+    getProductImage(product);
+
+  const oldPrice =
+    Number(product.oldPrice || 0);
+
+  const price =
+    Number(product.price || 0);
+
+  let discount = "";
+
+  if (
+    oldPrice > price &&
+    oldPrice > 0
+  ) {
+    const percent =
+      Math.round(
+        ((oldPrice - price) /
+          oldPrice) *
+          100
+      );
+
+    discount = `
+      <span class="discount-badge">
+        ${percent}% OFF
+      </span>
+    `;
+  }
+
+  return `
+    <div class="product-card">
+
+      <div
+        class="product-image-wrap"
+        onclick="openProduct('${esc(product.id)}')"
+      >
+
+        ${discount}
+
+        <img
+          src="${esc(image)}"
+          alt="${esc(product.name)}"
+          class="product-image"
+          loading="lazy"
+          onerror="imageError(this)"
+        >
+
+      </div>
+
+      <div class="product-info">
+
+        <div class="product-category">
+          ${esc(
+            product.category ||
+            "Footwear"
+          )}
+        </div>
+
+        <h3 class="product-name">
+          ${esc(product.name)}
+        </h3>
+
+        <div class="price-row">
+
+          <strong class="product-price">
+            ${money(price)}
+          </strong>
+
+          ${
+            oldPrice > price
+              ? `
+                <del>
+                  ${money(oldPrice)}
+                </del>
+              `
+              : ""
+          }
+
+        </div>
+
+        <button
+          class="btn btn-primary add-cart-btn"
+          onclick="openProduct('${esc(product.id)}')"
+        >
+          View Product
+        </button>
+
+      </div>
+
+    </div>
+  `;
+}
+
+
+// ===============================
+// RENDER PRODUCTS
+// ===============================
+
+function renderProducts(
+  list = products
+) {
+
+  const grid =
+    document.getElementById(
+      "productGrid"
+    );
+
+  if (!grid) return;
+
+  if (!list.length) {
+    grid.innerHTML = `
+      <div class="empty-state">
+        <h3>No products found</h3>
+        <p>
+          Try another category or search.
+        </p>
+      </div>
+    `;
+
+    return;
+  }
+
+  grid.innerHTML =
+    list
+      .map(productCard)
+      .join("");
+}
+
+
+// ===============================
+// FEATURED PRODUCTS
+// ===============================
+
+function renderFeaturedProducts() {
+
+  const grid =
+    document.getElementById(
+      "featuredGrid"
+    );
+
+  if (!grid) return;
+
+  const featured =
+    products
+      .filter(
+        product =>
+          product.featured === true
+      )
+      .slice(0, 8);
+
+  const list =
+    featured.length
+      ? featured
+      : products.slice(0, 8);
+
+  grid.innerHTML =
+    list.length
+      ? list
+          .map(productCard)
+          .join("")
+      : `
+        <div class="empty-state">
+          <h3>
+            No featured products yet
+          </h3>
+        </div>
+      `;
+}
+
+
+// ===============================
+// CATEGORIES
+// ===============================
+
+function populateCategories() {
+
+  const select =
+    document.getElementById(
+      "categoryFilter"
+    );
+
+  if (!select) return;
+
+  const categories = [
+    ...new Set(
+      products
+        .map(
+          product =>
+            product.category
+        )
+        .filter(Boolean)
+    )
+  ];
+
+  select.innerHTML = `
+    <option value="">
+      All Categories
+    </option>
+
+    ${categories
+      .map(
+        category => `
+          <option
+            value="${esc(category)}"
+          >
+            ${esc(category)}
+          </option>
+        `
+      )
+      .join("")}
+  `;
+}
+
+
+// ===============================
+// SEARCH
+// ===============================
+
+function searchProducts() {
+
+  const searchInput =
+    document.getElementById(
+      "searchInput"
+    );
+
+  if (!searchInput) return;
+
+  const keyword =
+    searchInput.value
+      .trim()
+      .toLowerCase();
+
+  const filtered =
+    products.filter(product => {
+
+      const name =
+        String(
+          product.name || ""
+        ).toLowerCase();
+
+      const category =
+        String(
+          product.category || ""
+        ).toLowerCase();
+
+      const description =
+        String(
+          product.description || ""
+        ).toLowerCase();
+
+      return (
+        name.includes(keyword) ||
+        category.includes(keyword) ||
+        description.includes(keyword)
+      );
+    });
+
+  renderProducts(filtered);
+}
+
+
+// ===============================
+// CATEGORY FILTER
+// ===============================
+
+function filterCategory() {
+
+  const select =
+    document.getElementById(
+      "categoryFilter"
+    );
+
+  if (!select) return;
+
+  const category =
+    select.value;
+
+  if (!category) {
+    renderProducts(products);
+    return;
+  }
+
+  renderProducts(
+    products.filter(
+      product =>
+        product.category ===
+        category
+    )
+  );
+}
+
+
+// ===============================
+// CATEGORY CARD
+// ===============================
+
+function setCategory(
+  category = "all"
+) {
+
+  const select =
+    document.getElementById(
+      "categoryFilter"
+    );
+
+  if (select) {
+    select.value =
+      category === "all"
+        ? ""
+        : category;
+  }
+
+  const shopSection =
+    document.getElementById(
+      "shop"
+    );
+
+  if (shopSection) {
+    shopSection.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+  }
+
+  filterCategory();
+}
+
+
+// ===============================
+// PRODUCT DETAILS
+// ===============================
+
+function openProduct(productId) {
+
+  const product =
+    products.find(
+      item =>
+        item.id === productId
+    );
+
+  if (!product) {
+    console.error(
+      "Product not found:",
+      productId
+    );
+
+    return;
+  }
+
+  const modal =
+    document.getElementById(
+      "productModal"
+    );
+
+  if (!modal) return;
+
+  const mainImage =
+    getProductImage(product);
+
+  const images =
+    Array.isArray(product.images) &&
+    product.images.length
+      ? product.images
+          .map(item => ({
+            url:
+              normalizeImageUrl(
+                item?.url || item
+              )
+          }))
+          .filter(
+            item => item.url
+          )
+      : (
+          mainImage
+            ? [
+                {
+                  url: mainImage
+                }
+              ]
+            : []
+        );
+
+  const sizes =
+    Array.isArray(product.sizes)
+      ? product.sizes
+      : String(
+          product.sizes || ""
+        )
+          .split(",")
+          .map(
+            x => x.trim()
+          )
+          .filter(Boolean);
+
+  const colors =
+    Array.isArray(product.colors)
+      ? product.colors
+      : String(
+          product.colors || ""
+        )
+          .split(",")
+          .map(
+            x => x.trim()
+          )
+          .filter(Boolean);
+
+  modal.innerHTML = `
+
+    <div
+      class="modal-overlay"
+      onclick="closeProduct(event)"
+    >
+
+      <div
+        class="product-modal"
+        onclick="event.stopPropagation()"
+      >
+
+        <button
+          class="modal-close"
+          onclick="closeProduct()"
+          aria-label="Close"
+        >
+          ×
+        </button>
+
+        <div class="product-detail">
+
+          <div class="gallery">
+
+            <img
+              id="mainProductImage"
+              src="${esc(mainImage)}"
+              alt="${esc(product.name)}"
+              class="detail-main-image"
+              onerror="imageError(this)"
+            >
+
+            <div class="thumbnail-row">
+
+              ${
+                images
+                  .map(
+                    (img, index) => `
+                      <img
+                        src="${esc(img.url)}"
+                        alt="${esc(product.name)}"
+                        class="
+                          thumbnail
+                          ${
+                            index === 0
+                              ? "active"
+                              : ""
+                          }
+                        "
+                        onclick="
+                          changeMainImage(
+                            '${esc(img.url)}',
+                            this
+                          )
+                        "
+                        onerror="imageError(this)"
+                      >
+                    `
+                  )
+                  .join("")
+              }
+
+            </div>
+
+          </div>
+
+          <div class="detail-content">
+
+            <div class="product-category">
+              ${esc(
+                product.category ||
+                "Footwear"
+              )}
+            </div>
+
+            <h2>
+              ${esc(product.name)}
+            </h2>
+
+            <div class="detail-price">
+
+              <strong>
+                ${money(product.price)}
+              </strong>
+
+              ${
+                Number(
+                  product.oldPrice || 0
+                ) >
+                Number(
+                  product.price || 0
+                )
+                  ? `
+                    <del>
+                      ${money(
+                        product.oldPrice
+                      )}
+                    </del>
+                  `
+                  : ""
+              }
+
+            </div>
+
+            <p class="detail-description">
+              ${esc(
+                product.description ||
+                "Premium quality footwear from Royale Stepz Zone."
+              )}
+            </p>
+
+            ${
+              sizes.length
+                ? `
+                  <div class="option-group">
+
+                    <h4>
+                      Select Size
+                    </h4>
+
+                    <div
+                      class="option-buttons"
+                      id="sizeOptions"
+                    >
+
+                      ${sizes
+                        .map(
+                          (size, index) => `
+                            <button
+                              type="button"
+                              class="
+                                option-btn
+                                ${
+                                  index === 0
+                                    ? "active"
+                                    : ""
+                                }
+                              "
+                              onclick="
+                                selectOption(
+                                  this,
+                                  'size'
+                                )
+                              "
+                              data-value="${esc(
+                                size
+                              )}"
+                            >
+                              ${esc(size)}
+                            </button>
+                          `
+                        )
+                        .join("")}
+
+                    </div>
+
+                  </div>
+                `
+                : ""
+            }
+
+            ${
+              colors.length
+                ? `
+                  <div class="option-group">
+
+                    <h4>
+                      Select Color
+                    </h4>
+
+                    <div
+                      class="option-buttons"
+                      id="colorOptions"
+                    >
+
+                      ${colors
+                        .map(
+                          (color, index) => `
+                            <button
+                              type="button"
+                              class="
+                                option-btn
+                                ${
+                                  index === 0
+                                    ? "active"
+                                    : ""
+                                }
+                              "
+                              onclick="
+                                selectOption(
+                                  this,
+                                  'color'
+                                )
+                              "
+                              data-value="${esc(
+                                color
+                              )}"
+                            >
+                              ${esc(color)}
+                            </button>
+                          `
+                        )
+                        .join("")}
+
+                    </div>
+
+                  </div>
+                `
+                : ""
+            }
+
+            <div class="option-group">
+
+              <h4>
+                Quantity
+              </h4>
+
+              <div class="quantity-box">
+
+                <button
+                  type="button"
+                  onclick="changeQuantity(-1)"
+                >
+                  −
+                </button>
+
+                <span id="productQuantity">
+                  1
+                </span>
+
+                <button
+                  type="button"
+                  onclick="changeQuantity(1)"
+                >
+                  +
+                </button>
+
+              </div>
+
+            </div>
+
+            <div
+              style="
+                display:flex;
+                gap:10px;
+                flex-wrap:wrap;
+                margin-top:15px;
+              "
+            >
+
+              <button
+                type="button"
+                class="btn btn-primary btn-large"
+                onclick="
+                  addCurrentProductToCart(
+                    '${esc(product.id)}'
+                  )
+                "
+              >
+                Add to Cart
+              </button>
+
+              <button
+                type="button"
+                class="btn btn-large"
+                style="
+                  background:#25D366;
+                  color:#fff;
+                "
+                onclick="
+                  buyProductOnWhatsApp(
+                    '${esc(product.id)}'
+                  )
+                "
+              >
+                WhatsApp Order
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  `;
+
+  modal.classList.add("active");
+
+  document.body.classList.add(
+    "modal-open"
+  );
+}
+
+
+// ===============================
+// CLOSE PRODUCT
+// ===============================
+
+function closeProduct(event) {
+
+  if (
+    event &&
+    event.target &&
+    !event.target.classList.contains(
+      "modal-overlay"
+    )
+  ) {
+    return;
+  }
+
+  const modal =
+    document.getElementById(
+      "productModal"
+    );
+
+  if (!modal) return;
+
+  modal.classList.remove("active");
+
+  modal.innerHTML = "";
+
+  document.body.classList.remove(
+    "modal-open"
+  );
+}
+
+
+// ===============================
+// CHANGE MAIN IMAGE
+// ===============================
+
+function changeMainImage(
+  url,
+  thumbnail
+) {
+
+  const main =
+    document.getElementById(
+      "mainProductImage"
+    );
+
+  if (!main) return;
+
+  main.src =
+    normalizeImageUrl(url);
+
+  document
+    .querySelectorAll(
+      ".thumbnail"
+    )
+    .forEach(el =>
+      el.classList.remove(
+        "active"
+      )
+    );
+
+  if (thumbnail) {
+    thumbnail.classList.add(
+      "active"
+    );
+  }
+}
+
+
+// ===============================
+// SELECT SIZE / COLOR
+// ===============================
+
+function selectOption(
+  button,
+  type
+) {
+
+  if (!button) return;
+
+  const parent =
+    button.parentElement;
+
+  if (parent) {
+    parent
+      .querySelectorAll(
+        ".option-btn"
+      )
+      .forEach(btn =>
+        btn.classList.remove(
+          "active"
+        )
+      );
+  }
+
+  button.classList.add(
+    "active"
+  );
+
+  button.dataset.optionType =
+    type;
+}
+
+
+// ===============================
+// QUANTITY
+// ===============================
+
+function changeQuantity(
+  amount
+) {
+
+  const quantityElement =
+    document.getElementById(
+      "productQuantity"
+    );
+
+  if (!quantityElement) return;
+
+  let quantity =
+    Number(
+      quantityElement.textContent
+    ) || 1;
+
+  quantity += amount;
+
+  if (quantity < 1) {
+    quantity = 1;
+  }
+
+  if (quantity > 99) {
+    quantity = 99;
+  }
+
+  quantityElement.textContent =
+    quantity;
+}
+
+
+// ===============================
+// GET SELECTED OPTIONS
+// ===============================
+
+function getSelectedProductOptions() {
+
+  let size = "";
+  let color = "";
+
+  const activeSize =
+    document.querySelector(
+      "#sizeOptions .option-btn.active"
+    );
+
+  if (activeSize) {
+    size =
+      activeSize.dataset.value ||
+      activeSize.textContent.trim();
+  }
+
+  const activeColor =
+    document.querySelector(
+      "#colorOptions .option-btn.active"
+    );
+
+  if (activeColor) {
+    color =
+      activeColor.dataset.value ||
+      activeColor.textContent.trim();
+  }
+
+  const quantityElement =
+    document.getElementById(
+      "productQuantity"
+    );
+
+  const quantity =
+    Number(
+      quantityElement?.textContent
+    ) || 1;
+
+  return {
+    size,
+    color,
+    quantity
+  };
+}
+
+
+// ===============================
+// ADD CURRENT PRODUCT TO CART
+// ===============================
+
+function addCurrentProductToCart(
+  productId
+) {
+
+  const product =
+    products.find(
+      item =>
+        item.id === productId
+    );
+
+  if (!product) return;
+
+  const {
+    size,
+    color,
+    quantity
+  } =
+    getSelectedProductOptions();
+
+  addToCart(
+    product,
+    size,
+    color,
+    quantity
+  );
+}
+
+
+// ===============================
+// ADD TO CART
+// ===============================
+
+function addToCart(
+  product,
+  size = "",
+  color = "",
+  quantity = 1
+) {
+
+  if (!product) return;
+
+  const productId =
+    product.id;
+
+  const existing =
+    cart.find(item =>
+      item.productId ===
+        productId &&
+      item.size === size &&
+      item.color === color
+    );
+
+  if (existing) {
+    existing.quantity +=
+      Number(quantity || 1);
+  } else {
+    cart.push({
+      productId,
+      name:
+        product.name || "",
+      price:
+        Number(
+          product.price || 0
+        ),
+      image:
+        getProductImage(product),
+      size,
+      color,
+      quantity:
+        Number(quantity || 1)
+    });
+  }
+
+  saveCart();
+
+  closeProduct();
+
+  showToast(
+    "Product added to cart"
+  );
+
+  renderCart();
+}
+
+
+// ===============================
+// CART DISPLAY
+// ===============================
+
+function renderCart() {
+
+  const container =
+    document.getElementById(
+      "cartItems"
+    );
+
+  if (!container) return;
+
+  if (!cart.length) {
+
+    container.innerHTML = `
+      <div class="empty-state">
+
+        <h3>
+          Your cart is empty
+        </h3>
+
+        <p>
+          Add some products to continue.
+        </p>
+
+      </div>
+    `;
+
+    updateCartTotals();
+
+    return;
+  }
+
+  container.innerHTML =
+    cart
+      .map(
+        (item, index) => `
+
+          <div class="cart-item">
+
+            <img
+              src="${esc(
+                normalizeImageUrl(
+                  item.image
+                )
+              )}"
+              alt="${esc(
+                item.name
+              )}"
+              onerror="imageError(this)"
+            >
+
+            <div class="cart-item-info">
+
+              <h4>
+                ${esc(item.name)}
+              </h4>
+
+              ${
+                item.size
+                  ? `
+                    <p>
+                      Size:
+                      ${esc(item.size)}
+                    </p>
+                  `
+                  : ""
+              }
+
+              ${
+                item.color
+                  ? `
+                    <p>
+                      Color:
+                      ${esc(item.color)}
+                    </p>
+                  `
+                  : ""
+              }
+
+              <strong>
+                ${money(item.price)}
+              </strong>
+
+              <div class="cart-quantity">
+
+                <button
+                  type="button"
+                  onclick="
+                    updateCartQuantity(
+                      ${index},
+                      -1
+                    )
+                  "
+                >
+                  −
+                </button>
+
+                <span>
+                  ${item.quantity}
+                </span>
+
+                <button
+                  type="button"
+                  onclick="
+                    updateCartQuantity(
+                      ${index},
+                      1
+                    )
+                  "
+                >
+                  +
+                </button>
+
+              </div>
+
+            </div>
+
+            <button
+              type="button"
+              class="remove-cart"
+              onclick="
+                removeCartItem(
+                  ${index}
+                )
+              "
+            >
+              Remove
+            </button>
+
+          </div>
+
+        `
+      )
+      .join("");
+
+  updateCartTotals();
+}
+
+
+// ===============================
+// UPDATE CART QUANTITY
+// ===============================
+
+function updateCartQuantity(
+  index,
+  amount
+) {
+
+  if (!cart[index]) return;
+
+  cart[index].quantity +=
+    Number(amount || 0);
+
+  if (
+    cart[index].quantity <= 0
+  ) {
+    cart.splice(index, 1);
+  }
+
+  saveCart();
+
+  renderCart();
+}
+
+
+// ===============================
+// REMOVE CART ITEM
+// ===============================
+
+function removeCartItem(index) {
+
+  if (!cart[index]) return;
+
+  cart.splice(index, 1);
+
+  saveCart();
+
+  renderCart();
+}
+
+
+// ===============================
+// CART TOTAL
+// ===============================
+
+function updateCartTotals() {
+
+  const subtotal =
+    cart.reduce(
+      (sum, item) =>
+        sum +
+        Number(
+          item.price || 0
+        ) *
+        Number(
+          item.quantity || 0
+        ),
+      0
+    );
+
+  const element =
+    document.getElementById(
+      "cartSubtotal"
+    );
+
+  if (element) {
+    element.textContent =
+      money(subtotal);
+  }
+
+  const totalElement =
+    document.getElementById(
+      "cartTotal"
+    );
+
+  if (totalElement) {
+    totalElement.textContent =
+      money(subtotal);
+  }
+}
+
+
+// ===============================
+// WHATSAPP - SINGLE PRODUCT
+// ===============================
+
+function buyProductOnWhatsApp(
+  productId
+) {
+
+  const product =
+    products.find(
+      item =>
+        item.id === productId
+    );
+
+  if (!product) return;
+
+  const {
+    size,
+    color,
+    quantity
+  } =
+    getSelectedProductOptions();
+
+  let message =
+    `Hello Royale Stepz Zone!\n\n`;
+
+  message +=
+    `I want to order this product:\n\n`;
+
+  message +=
+    `Product: ${product.name || ""}\n`;
+
+  message +=
+    `Price: ${money(product.price)}\n`;
+
+  if (size) {
+    message +=
+      `Size: ${size}\n`;
+  }
+
+  if (color) {
+    message +=
+      `Color: ${color}\n`;
+  }
+
+  message +=
+    `Quantity: ${quantity}\n`;
+
+  message +=
+    `Total: ${money(
+      Number(product.price || 0) *
+      quantity
+    )}\n\n`;
+
+  message +=
+    `Please confirm availability.`;
+
+  const url =
+    `https://wa.me/${SHOP_WHATSAPP_NUMBER}?text=` +
+    encodeURIComponent(message);
+
+  window.open(
+    url,
+    "_blank",
+    "noopener,noreferrer"
+  );
+}
+
+
+// ===============================
+// WHATSAPP - CART
+// ===============================
+
+function sendCartToWhatsApp() {
+
+  if (!cart.length) {
+    showToast(
+      "Your cart is empty"
+    );
+    return;
+  }
+
+  let message =
+    `Hello Royale Stepz Zone!\n\n`;
+
+  message +=
+    `I want to order the following items:\n\n`;
+
+  cart.forEach(
+    (item, index) => {
+
+      message +=
+        `${index + 1}. ${item.name}\n`;
+
+      message +=
+        `Qty: ${item.quantity}\n`;
+
+      if (item.size) {
+        message +=
+          `Size: ${item.size}\n`;
+      }
+
+      if (item.color) {
+        message +=
+          `Color: ${item.color}\n`;
+      }
+
+      message +=
+        `Price: ${money(item.price)}\n`;
+
+      message +=
+        `Item Total: ${money(
+          Number(item.price || 0) *
+          Number(item.quantity || 0)
+        )}\n\n`;
+    }
+  );
+
+  const subtotal =
+    cart.reduce(
+      (sum, item) =>
+        sum +
+        Number(item.price || 0) *
+        Number(item.quantity || 0),
+      0
+    );
+
+  message +=
+    `Cart Total: ${money(subtotal)}\n\n`;
+
+  message +=
+    `Please confirm my order.`;
+
+  const url =
+    `https://wa.me/${SHOP_WHATSAPP_NUMBER}?text=` +
+    encodeURIComponent(message);
+
+  window.open(
+    url,
+    "_blank",
+    "noopener,noreferrer"
+  );
+}
+
+
+// ===============================
+// WHATSAPP FLOATING BUTTON
+// ===============================
+
+function createWhatsAppButton() {
+
+  if (
+    document.getElementById(
+      "royaleWhatsAppButton"
+    )
+  ) {
+    return;
+  }
+
+  const button =
+    document.createElement(
+      "a"
+    );
+
+  button.id =
+    "royaleWhatsAppButton";
+
+  button.href =
+    `https://wa.me/${SHOP_WHATSAPP_NUMBER}`;
+
+  button.target =
+    "_blank";
+
+  button.rel =
+    "noopener noreferrer";
+
+  button.setAttribute(
+    "aria-label",
+    "Contact us on WhatsApp"
+  );
+
+  button.innerHTML = `
+    <span
+      style="
+        font-size:24px;
+        line-height:1;
+      "
+    >
+      💬
+    </span>
+
+    <span>
+      WhatsApp
+    </span>
+  `;
+
+  button.style.cssText = `
+    position:fixed;
+    right:20px;
+    bottom:20px;
+    z-index:9999;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:12px 18px;
+    background:#25D366;
+    color:#ffffff;
+    text-decoration:none;
+    border-radius:50px;
+    font-weight:700;
+    font-size:14px;
+    box-shadow:0 5px 20px rgba(0,0,0,0.20);
+    transition:transform .2s ease;
+  `;
+
+  button.addEventListener(
+    "mouseenter",
+    () => {
+      button.style.transform =
+        "scale(1.05)";
+    }
+  );
+
+  button.addEventListener(
+    "mouseleave",
+    () => {
+      button.style.transform =
+        "scale(1)";
+    }
+  );
+
+  document.body.appendChild(
+    button
+  );
+}
+
+
+// ===============================
+// AUTH - REGISTER
+// ===============================
+
+async function registerUser(
+  name,
+  phone,
+  email,
+  password
+) {
+
+  try {
+
+    const result =
+      await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+
+    await set(
+      ref(
+        db,
+        `users/${result.user.uid}`
+      ),
+      {
+        name,
+        phone,
+        email,
+        role: "user",
+        createdAt:
+          Date.now()
+      }
+    );
+
+    showToast(
+      "Account created successfully"
+    );
+
+    return true;
+
+  } catch (error) {
+
+    console.error(
+      "Registration error:",
+      error
+    );
+
+    showToast(
+      error.message ||
+      "Registration failed"
+    );
+
+    return false;
+  }
+}
+
+
+// ===============================
+// AUTH - LOGIN
+// ===============================
+
+async function loginUser(
+  email,
+  password
+) {
+
+  try {
+
+    await signInWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
+
+    showToast(
+      "Login successful"
+    );
+
+    return true;
+
+  } catch (error) {
+
+    console.error(
+      "Login error:",
+      error
+    );
+
+    showToast(
+      error.message ||
+      "Login failed"
+    );
+
+    return false;
+  }
+}
+
+
+// ===============================
+// AUTH - LOGOUT
+// ===============================
+
+async function logoutUser() {
+
+  try {
+
+    await signOut(auth);
+
+    showToast(
+      "Logged out"
+    );
+
+  } catch (error) {
+
+    console.error(
+      "Logout error:",
+      error
+    );
+  }
+}
+
+
+// ===============================
+// AUTH STATE
+// ===============================
+
+onAuthStateChanged(
+  auth,
+  async user => {
+
+    currentUser =
+      user || null;
+
+    updateAuthUI();
+
+    if (user) {
+
+      console.log(
+        "Logged in:",
+        user.email
+      );
+
+      if (
+        user.uid ===
+        ADMIN_UID
+      ) {
+        console.log(
+          "Admin account detected"
+        );
+      }
+    }
+  }
+);
+
+
+// ===============================
+// UPDATE AUTH UI
+// ===============================
+
+function updateAuthUI() {
+
+  document
+    .querySelectorAll(
+      "[data-auth-user]"
+    )
+    .forEach(el => {
+
+      el.textContent =
+        currentUser?.email ||
+        "Guest";
+    });
+
+  document
+    .querySelectorAll(
+      ".login-only"
+    )
+    .forEach(el => {
+
+      el.style.display =
+        currentUser
+          ? ""
+          : "none";
+    });
+
+  document
+    .querySelectorAll(
+      ".logout-only"
+    )
+    .forEach(el => {
+
+      el.style.display =
+        currentUser
+          ? ""
+          : "none";
+    });
+
+  const adminButtons =
+    document.querySelectorAll(
+      ".admin-only"
+    );
+
+  adminButtons.forEach(
+    button => {
+
+      button.style.display =
+        currentUser &&
+        currentUser.uid ===
+          ADMIN_UID
+          ? ""
+          : "none";
+    }
+  );
+}
+
+
+// ===============================
+// CREATE ORDER
+// ===============================
+
+async function createOrder(
+  orderData
+) {
+
+  if (!currentUser) {
+
+    showToast(
+      "Please login first"
+    );
+
+    return null;
+  }
+
+  if (!cart.length) {
+
+    showToast(
+      "Your cart is empty"
+    );
+
+    return null;
+  }
+
+  try {
+
+    const orderRef =
+      push(
+        ref(db, "orders")
+      );
+
+    const subtotal =
+      cart.reduce(
+        (sum, item) =>
+          sum +
+          Number(
+            item.price || 0
+          ) *
+          Number(
+            item.quantity || 0
+          ),
+        0
+      );
+
+    const deliveryCharge =
+      Number(
+        orderData?.deliveryCharge ||
+        0
+      );
+
+    const discount =
+      Number(
+        orderData?.discount ||
+        0
+      );
+
+    const total =
+      Number(
+        orderData?.total
+      ) ||
+      Math.max(
+        0,
+        subtotal +
+          deliveryCharge -
+          discount
+      );
+
+    const order = {
+
+      ...(orderData || {}),
+
+      userId:
+        currentUser.uid,
+
+      customerEmail:
+        currentUser.email ||
+        "",
+
+      items:
+        cart.map(item => ({
+          productId:
+            item.productId,
+
+          name:
+            item.name,
+
+          price:
+            Number(
+              item.price || 0
+            ),
+
+          quantity:
+            Number(
+              item.quantity || 0
+            ),
+
+          size:
+            item.size || "",
+
+          color:
+            item.color || ""
+        })),
+
+      subtotal,
+
+      deliveryCharge,
+
+      discount,
+
+      total,
+
+      status:
+        "Pending",
+
+      createdAt:
+        Date.now()
+    };
+
+    await set(
+      orderRef,
+      order
+    );
+
+    cart = [];
+
+    saveCart();
+
+    showToast(
+      "Order placed successfully"
+    );
+
+    sendWhatsAppOrder(
+      order
+    );
+
+    return orderRef.key;
+
+  } catch (error) {
+
+    console.error(
+      "Order error:",
+      error
+    );
+
+    showToast(
+      error.message ||
+      "Order could not be placed"
+    );
+
+    return null;
+  }
+}
+
+
+// ===============================
+// WHATSAPP ORDER
+// ===============================
+
+function sendWhatsAppOrder(
+  order
+) {
+
+  let message =
+    `New Order - Royale Stepz Zone\n\n`;
+
+  message +=
+    `Customer: ${
+      order.customerName || ""
+    }\n`;
+
+  message +=
+    `Phone: ${
+      order.phone || ""
+    }\n`;
+
+  message +=
+    `Address: ${
+      order.address || ""
+    }\n\n`;
+
+  message +=
+    "Items:\n";
+
+  (
+    order.items || []
+  ).forEach(item => {
+
+    message +=
+      `${item.name} x ${item.quantity}`;
+
+    if (item.size) {
+      message +=
+        ` | Size: ${item.size}`;
+    }
+
+    if (item.color) {
+      message +=
+        ` | Color: ${item.color}`;
+    }
+
+    message +=
+      ` | ${money(
+        Number(item.price || 0) *
+        Number(item.quantity || 0)
+      )}\n`;
+  });
+
+  message +=
+    `\nSubtotal: ${money(
+      order.subtotal
+    )}`;
+
+  message +=
+    `\nDelivery: ${money(
+      order.deliveryCharge || 0
+    )}`;
+
+  message +=
+    `\nDiscount: ${money(
+      order.discount || 0
+    )}`;
+
+  message +=
+    `\nTotal: ${money(
+      order.total ||
+      order.subtotal
+    )}`;
+
+  const url =
+    `https://wa.me/${SHOP_WHATSAPP_NUMBER}?text=` +
+    encodeURIComponent(
+      message
+    );
+
+  window.open(
+    url,
+    "_blank",
+    "noopener,noreferrer"
+  );
+}
+
+
+// ===============================
+// MY ORDERS
+// ===============================
+
+async function loadMyOrders() {
+
+  if (!currentUser) {
+
+    showToast(
+      "Please login first"
+    );
+
+    return;
+  }
+
+  const container =
+    document.getElementById(
+      "myOrders"
+    );
+
+  if (!container) return;
+
+  try {
+
+    const ordersQuery =
+      query(
+        ref(db, "orders"),
+        orderByChild(
+          "userId"
+        ),
+        equalTo(
+          currentUser.uid
+        )
+      );
+
+    const snapshot =
+      await get(
+        ordersQuery
+      );
+
+    if (!snapshot.exists()) {
+
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>
+            No orders yet
+          </h3>
+        </div>
+      `;
+
+      return;
+    }
+
+    const orders = [];
+
+    snapshot.forEach(
+      child => {
+
+        orders.push({
+          id: child.key,
+          ...child.val()
+        });
+      }
+    );
+
+    orders.sort(
+      (a, b) =>
+        Number(
+          b.createdAt || 0
+        ) -
+        Number(
+          a.createdAt || 0
+        )
+    );
+
+    container.innerHTML =
+      orders
+        .map(
+          order => `
+
+            <div class="order-card">
+
+              <div class="order-header">
+
+                <strong>
+                  Order #${esc(
+                    order.id
+                  )}
+                </strong>
+
+                <span
+                  class="
+                    status
+                    status-${String(
+                      order.status ||
+                      "Pending"
+                    ).toLowerCase()}
+                  "
+                >
+                  ${esc(
+                    order.status ||
+                    "Pending"
+                  )}
+                </span>
+
+              </div>
+
+              <div class="order-items">
+
+                ${
+                  (
+                    order.items ||
+                    []
+                  )
+                    .map(
+                      item => `
+                        <p>
+                          ${esc(
+                            item.name
+                          )}
+                          ×
+                          ${Number(
+                            item.quantity ||
+                            0
+                          )}
+                        </p>
+                      `
+                    )
+                    .join("")
+                }
+
+              </div>
+
+              <strong>
+                Total:
+                ${money(
+                  order.total ||
+                  order.subtotal
+                )}
+              </strong>
+
+            </div>
+
+          `
+        )
+        .join("");
+
+  } catch (error) {
+
+    console.error(
+      "Orders loading error:",
+      error
+    );
+
+    container.innerHTML = `
+      <div class="empty-state">
+        Unable to load orders.
+      </div>
+    `;
+  }
+}
+
+
+// ===============================
+// TOAST
+// ===============================
+
+function showToast(
+  message
+) {
+
+  let toast =
+    document.getElementById(
+      "toast"
+    );
+
+  if (!toast) {
+
+    toast =
+      document.createElement(
+        "div"
+      );
+
+    toast.id =
+      "toast";
+
+    toast.className =
+      "toast";
+
+    document.body.appendChild(
+      toast
+    );
+  }
+
+  toast.textContent =
+    message;
+
+  toast.classList.add(
+    "show"
+  );
+
+  clearTimeout(
+    window.__royaleToastTimer
+  );
+
+  window.__royaleToastTimer =
+    setTimeout(
+      () => {
+
+        toast.classList.remove(
+          "show"
+        );
+
+      },
+      3000
+    );
+}
+
+
+// ===============================
+// GLOBAL FUNCTIONS
+// ===============================
+
+window.openProduct =
+  openProduct;
+
+window.closeProduct =
+  closeProduct;
+
+window.changeMainImage =
+  changeMainImage;
+
+window.selectOption =
+  selectOption;
+
+window.changeQuantity =
+  changeQuantity;
+
+window.addCurrentProductToCart =
+  addCurrentProductToCart;
+
+window.addToCart =
+  addToCart;
+
+window.renderCart =
+  renderCart;
+
+window.updateCartQuantity =
+  updateCartQuantity;
+
+window.removeCartItem =
+  removeCartItem;
+
+window.searchProducts =
+  searchProducts;
+
+window.filterCategory =
+  filterCategory;
+
+window.setCategory =
+  setCategory;
+
+window.imageError =
+  imageError;
+
+window.registerUser =
+  registerUser;
+
+window.loginUser =
+  loginUser;
+
+window.logoutUser =
+  logoutUser;
+
+window.createOrder =
+  createOrder;
+
+window.loadMyOrders =
+  loadMyOrders;
+
+window.sendWhatsAppOrder =
+  sendWhatsAppOrder;
+
+window.sendCartToWhatsApp =
+  sendCartToWhatsApp;
+
+window.buyProductOnWhatsApp =
+  buyProductOnWhatsApp;
+
+
+// ===============================
+// INITIALIZE
+// ===============================
+
+document.addEventListener(
+  "DOMContentLoaded",
+  () => {
+
+    updateCartCount();
+
+    loadProducts();
+
+    renderCart();
+
+    createWhatsAppButton();
+
+    const searchInput =
+      document.getElementById(
+        "searchInput"
+      );
+
+    if (searchInput) {
+
+      searchInput.addEventListener(
+        "input",
+        searchProducts
+      );
+    }
+
+    const categoryFilter =
+      document.getElementById(
+        "categoryFilter"
+      );
+
+    if (categoryFilter) {
+
+      categoryFilter.addEventListener(
+        "change",
+        filterCategory
+      );
+    }
+
+  }
+);
+```
 import {
   auth,
   db,
